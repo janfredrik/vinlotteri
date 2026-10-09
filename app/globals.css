@@ -1,0 +1,430 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #fbf6ef;
+  --color-parchment: #f3e9db;
+  --color-wine: #7b1e3b;
+  --color-wine-dark: #5a1029;
+  --color-plum: #2c0a14;
+  --color-gold: #c2933a;
+  --color-gold-soft: #e7cf9c;
+  --color-sage: #4c6b52;
+
+  --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+
+  --radius-xl: 1rem;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-plum);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+@keyframes dice-sweep {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-sweep {
+  animation: dice-sweep 0.35s ease-in-out infinite;
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-pop {
+  animation: pop-in 0.25s ease-out both;
+}
+
+@keyframes winner-glow {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(194, 147, 58, 0.35), 0 0 8px 2px rgba(194, 147, 58, 0.25); }
+  50% { box-shadow: 0 0 0 4px rgba(194, 147, 58, 0.5), 0 0 16px 6px rgba(194, 147, 58, 0.4); }
+}
+
+.animate-winner-glow {
+  animation: winner-glow 2.2s ease-in-out infinite;
+}
+
+/* Prize screenshot scan */
+@keyframes scan-sweep {
+  0% { top: -6%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+.scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--color-gold), transparent);
+  box-shadow: 0 0 12px 4px rgba(194, 147, 58, 0.55);
+  animation: scan-sweep 1.4s ease-in-out infinite;
+}
+.scan-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(194, 147, 58, 0.12), transparent 60%);
+  pointer-events: none;
+}
+@keyframes corner-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+.scan-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: var(--color-wine);
+  animation: corner-pulse 1.2s ease-in-out infinite;
+}
+@keyframes dots {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75%, 100% { content: "..."; }
+}
+.dots::after {
+  content: "";
+  animation: dots 1.2s steps(1) infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.animate-shimmer {
+  background-image: linear-gradient(100deg, #fff 30%, var(--color-gold-soft) 50%, #fff 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+@keyframes fill-flash {
+  0% { background-color: var(--color-gold-soft); box-shadow: 0 0 0 3px rgba(194, 147, 58, 0.5); transform: scale(1.02); }
+  100% { background-color: #fff; box-shadow: 0 0 0 0 rgba(194, 147, 58, 0); transform: scale(1); }
+}
+.animate-fill {
+  animation: fill-flash 1.1s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scan-line, .scan-corner, .animate-shimmer, .animate-fill, .dots::after { animation: none; }
+}
+
+/* Grid cells: reserved squares get a soft diagonal hatch so "pending" reads differently from
+   sold. The faint plum hatch is the empty square on the 404 page. */
+.cell-held {
+  background-color: color-mix(in srgb, var(--color-gold-soft) 55%, white);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 5px,
+    color-mix(in srgb, var(--color-gold) 22%, transparent) 5px 7px
+  );
+}
+.cell-blocked {
+  background-color: var(--color-parchment);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 4px,
+    color-mix(in srgb, var(--color-plum) 7%, transparent) 4px 5px
+  );
+}
+/* A locked square shakes its head: quick, damped, and tinted so the tap reads as "not yet". */
+@keyframes nope {
+  0% { transform: translateX(0); }
+  18% { transform: translateX(-4px); border-color: color-mix(in srgb, var(--color-wine) 45%, transparent); }
+  36% { transform: translateX(3px); }
+  54% { transform: translateX(-2px); }
+  72% { transform: translateX(1px); }
+  100% { transform: translateX(0); }
+}
+.animate-nope {
+  animation: nope 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-winner-glow, .animate-sweep { animation: none; }
+  .animate-nope { animation: none; }
+}
+
+/* Browser surfaces in the house palette */
+::selection {
+  background: color-mix(in srgb, var(--color-gold-soft) 80%, white);
+  color: var(--color-plum);
+}
+:focus-visible {
+  outline: 2px solid var(--color-wine);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+::placeholder {
+  color: color-mix(in srgb, var(--color-plum) 62%, white);
+  opacity: 1;
+}
+input, textarea {
+  caret-color: var(--color-wine);
+  accent-color: var(--color-wine);
+}
+dialog::backdrop {
+  background: color-mix(in srgb, var(--color-plum) 45%, transparent);
+}
+
+/* Draw result: the one authored moment on the organiser page. A winner surfaces out of a soft
+   blur, the crown settles a beat later. */
+@keyframes reveal {
+  from { opacity: 0; filter: blur(6px); transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; filter: blur(0); transform: none; }
+}
+@keyframes crown-settle {
+  0% { opacity: 0; transform: translateY(-10px) rotate(-8deg); }
+  60% { opacity: 1; transform: translateY(2px) rotate(2deg); }
+  100% { opacity: 1; transform: none; }
+}
+.animate-reveal {
+  animation: reveal 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-crown {
+  animation: crown-settle 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-reveal, .animate-crown { animation: none; }
+}
+
+/* 404: three dice tumble onto the table and land on 4 · blank · 4. The blank one comes last
+   and settles with a small wobble, since an empty square means roll again. */
+@keyframes nf-tumble {
+  0% { opacity: 0; transform: translate(var(--nf-x, 0), -56px) rotate(var(--nf-r, -160deg)) scale(0.85); }
+  55% { opacity: 1; }
+  75% { transform: translate(0, 4px) rotate(4deg) scale(1); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes nf-wobble {
+  0%, 100% { transform: rotate(0); }
+  30% { transform: rotate(-7deg); }
+  60% { transform: rotate(4deg); }
+}
+.nf-die {
+  animation: nf-tumble 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.nf-die-1 { --nf-x: -40px; --nf-r: -200deg; }
+.nf-die-2 { --nf-x: 0; --nf-r: 140deg; animation-delay: 0.14s; }
+.nf-die-3 { --nf-x: 40px; --nf-r: 220deg; animation-delay: 0.07s; }
+.nf-blank {
+  animation: nf-wobble 0.6s ease-in-out 1s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nf-die, .nf-blank { animation: none; }
+}
+
+/* Rules button: the die gets a quick roll each time the rules open, landing on a new face. */
+@keyframes rules-die-roll {
+  0% { transform: rotate(-200deg) scale(0.7); }
+  70% { transform: rotate(12deg) scale(1.05); }
+  100% { transform: none; }
+}
+.rules-die-roll {
+  display: block;
+  animation: rules-die-roll 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes rules-panel-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+.rules-panel {
+  transform-origin: top right;
+  animation: rules-panel-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rules-die-roll, .rules-panel { animation: none; }
+}
+
+/* Admin guide: each step slides in softly; pasted-link fields light up one after another. */
+@keyframes guide-step-in {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: none; }
+}
+.guide-step {
+  animation: guide-step-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes guide-fill {
+  from { background-color: #fff; border-color: color-mix(in srgb, var(--color-plum) 12%, transparent); color: color-mix(in srgb, var(--color-plum) 55%, transparent); }
+  40% { background-color: var(--color-gold-soft); }
+  to { background-color: color-mix(in srgb, var(--color-sage) 10%, white); border-color: color-mix(in srgb, var(--color-sage) 35%, transparent); color: var(--color-plum); }
+}
+.guide-fill {
+  animation: guide-fill 0.6s ease-out both;
+}
+@keyframes guide-fill-check {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: none; }
+}
+.guide-fill .guide-fill-check {
+  animation: guide-fill-check 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: inherit;
+}
+@media (prefers-reduced-motion: reduce) {
+  .guide-step, .guide-fill, .guide-fill .guide-fill-check { animation: none; }
+  .guide-fill { background-color: color-mix(in srgb, var(--color-sage) 10%, white); border-color: color-mix(in srgb, var(--color-sage) 35%, transparent); }
+}
+
+/* Guide demos */
+@keyframes guide-tick {
+  from { background-color: #fff; border-color: color-mix(in srgb, var(--color-plum) 20%, transparent); color: transparent; transform: scale(1); }
+  50% { transform: scale(1.18); }
+  to { background-color: var(--color-sage); border-color: var(--color-sage); color: #fff; transform: scale(1); }
+}
+.guide-tick {
+  animation: guide-tick 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes guide-caret { 50% { opacity: 0; } }
+.guide-caret { animation: guide-caret 0.9s steps(1) infinite; }
+@keyframes guide-say {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+.guide-say { animation: guide-say 0.25s ease-out both; }
+@keyframes guide-die-tumble {
+  0% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-9px) rotate(-14deg); }
+  50% { transform: translateY(0) rotate(8deg); }
+  75% { transform: translateY(-5px) rotate(-6deg); }
+  100% { transform: translateY(0) rotate(0deg); }
+}
+.guide-die-tumble { animation: guide-die-tumble 0.42s ease-in-out infinite; }
+@keyframes guide-die-land {
+  0% { transform: translateY(-6px) rotate(10deg) scale(1.04); }
+  60% { transform: translateY(1px) rotate(-2deg) scale(0.98); }
+  100% { transform: none; }
+}
+.guide-die-land { animation: guide-die-land 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes guide-crown {
+  from { opacity: 0; transform: translate(-50%, 4px) scale(0.6); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+.guide-crown { animation: guide-crown 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
+@media (prefers-reduced-motion: reduce) {
+  .guide-tick, .guide-caret, .guide-say, .guide-die-tumble, .guide-die-land, .guide-crown { animation: none; }
+  .guide-tick { background-color: var(--color-sage); border-color: var(--color-sage); color: #fff; }
+}
+
+/* Seasonal themes (lib/season.ts): the buyer page re-tints the house palette and lets a few
+   emoji drift down behind the content. Only the round's own wrapper changes, never the chrome. */
+[data-season="jul"] {
+  --color-wine: #8e1a2b;
+  --color-wine-dark: #67111f;
+  --color-sage: #2f5d3a;
+}
+[data-season="paske"] {
+  --color-gold: #c99a1c;
+  --color-gold-soft: #f4e08e;
+}
+[data-season="17mai"] {
+  --color-wine: #ba0c2f;
+  --color-wine-dark: #8a0922;
+  --color-gold-soft: #dfe6f3;
+}
+[data-season="sommer"] {
+  --color-gold-soft: #f5d9a0;
+  --color-sage: #3f7a55;
+}
+@keyframes season-fall {
+  from { transform: translate3d(0, -10vh, 0) rotate(0deg); }
+  50% { transform: translate3d(18px, 50vh, 0) rotate(160deg); }
+  to { transform: translate3d(-6px, 110vh, 0) rotate(320deg); }
+}
+.season-flake {
+  position: absolute;
+  top: 0;
+  opacity: 0.32;
+  animation: season-fall linear infinite;
+  will-change: transform;
+}
+.season-greeting {
+  animation: pop-in 0.35s ease-out 0.2s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .season-drift { display: none; }
+  .season-greeting { animation: none; }
+}
+
+/* PIN gate: a wine glass fills a little with each digit, brims and clinks on the right PIN,
+   and drains (with the shared head-shake) on a wrong one. */
+.pin-wine {
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes pin-wave {
+  from { transform: translateX(0); }
+  to { transform: translateX(60px); }
+}
+.pin-wave {
+  animation: pin-wave 3.2s linear infinite;
+}
+.pin-wave-back {
+  animation-duration: 4.6s;
+  animation-direction: reverse;
+}
+@keyframes pin-cheer {
+  0% { transform: none; }
+  35% { transform: rotate(-9deg) translateY(-4px); }
+  65% { transform: rotate(4deg); }
+  100% { transform: none; }
+}
+.pin-glass {
+  transform-origin: 50% 90%;
+}
+.pin-glass-cheer {
+  animation: pin-cheer 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+}
+@keyframes pin-drop {
+  from { opacity: 0; transform: translateY(-10px) scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+.pin-square {
+  animation: pin-drop 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.pin-slots:focus-within {
+  outline: 2px solid color-mix(in srgb, var(--color-wine) 35%, transparent);
+  outline-offset: 2px;
+}
+.pin-caret {
+  animation: guide-caret 1s steps(1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pin-wine { transition: none; }
+  .pin-wave, .pin-glass-cheer, .pin-square, .pin-caret { animation: none; }
+}
+
+/* Overtime: sales are past closing but still open. The pill borrows the held-square hatch
+   (in limbo), and the hourglass keeps flipping over as if to buy a few more minutes. */
+.overtime-pill {
+  background-color: color-mix(in srgb, var(--color-gold-soft) 70%, white);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 5px,
+    color-mix(in srgb, var(--color-gold) 26%, transparent) 5px 7px
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-gold) 45%, transparent);
+}
+@keyframes overtime-flip {
+  0%, 35% { transform: rotate(0deg); }
+  43% { transform: rotate(190deg); }
+  47%, 85% { transform: rotate(180deg); }
+  93% { transform: rotate(370deg); }
+  97%, 100% { transform: rotate(360deg); }
+}
+.overtime-glass {
+  animation: overtime-flip 6.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .overtime-glass { animation: none; }
+}

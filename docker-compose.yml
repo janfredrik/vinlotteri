@@ -1,0 +1,32 @@
+services:
+  vinlotteri:
+    # Built and pushed by .github/workflows/docker-publish.yml on every push to main.
+    # Private package: run `docker login ghcr.io` on the host once (GitHub username +
+    # a PAT with read:packages) before the first pull.
+    image: ghcr.io/janfredrik/vinlotteri:latest
+    pull_policy: always
+    container_name: vinlotteri
+    restart: unless-stopped
+    environment:
+      # Shared PIN that gates the whole site. Required — `docker compose up` fails
+      # without it. Set SITE_PIN=off in .env to run with no gate on purpose.
+      SITE_PIN: "${SITE_PIN:?set SITE_PIN in .env (or SITE_PIN=off to disable the gate)}"
+      APP_URL: "${APP_URL:-http://localhost:3009}"
+      VINMONOPOLET_API_KEY: "${VINMONOPOLET_API_KEY:-}"
+      OCR_API_KEY: "${OCR_API_KEY:-}"
+      OCR_BASE_URL: "${OCR_BASE_URL:-}"
+      OCR_MODEL: "${OCR_MODEL:-}"
+      TEAMS_WEBHOOK_URL: "${TEAMS_WEBHOOK_URL:-}"
+      TZ: "${TZ:-Europe/Oslo}"
+    volumes:
+      # Unraid appdata share holds the SQLite database file
+      - /mnt/user/appdata/vinlotteri:/data
+    ports:
+      # Only needed if you reach it directly; SWAG talks over the shared network
+      - "3009:3000"
+    networks:
+      - swag
+
+networks:
+  swag:
+    external: true

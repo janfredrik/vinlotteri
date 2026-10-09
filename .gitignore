@@ -1,0 +1,25 @@
+node_modules
+.next
+out
+build
+next-env.d.ts
+*.tsbuildinfo
+
+# local data
+/data
+*.sqlite
+*.sqlite-*
+.env
+.env*.local
+
+# source spreadsheet for history import, and the extracted names/Vipps numbers (keep out of git)
+*.xlsx
+/scripts/loddark-*.json
+/.venv
+
+.DS_Store
+
+# local media and tooling config
+/vinlotteri-promo.mp4
+/.impeccable/
+/.claude/

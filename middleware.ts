@@ -1,0 +1,51 @@
+import { NextResponse, type NextRequest } from "next/server";
+import {
+  ACCESS_COOKIE,
+  ACCESS_MAX_AGE,
+  GATE_ON,
+  accessToken,
+  hasAccess,
+  pinMatches,
+} from "@/lib/access";
+
+export const config = {
+  // Node runtime so process.env.SITE_PIN is read at runtime, not inlined at build.
+  runtime: "nodejs",
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest|sw.js|icons/|robots.txt|apne|api/access).*)"],
+};
+
+// No `secure` flag: the app is also reachable on the plain-HTTP port behind SWAG,
+// and the token is an HMAC (not the PIN itself), httpOnly and sameSite=lax.
+const COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: "lax" as const,
+  path: "/",
+  maxAge: ACCESS_MAX_AGE,
+};
+
+export async function middleware(req: NextRequest) {
+  if (!GATE_ON) return NextResponse.next();
+
+  const url = req.nextUrl;
+
+  // Magic link: /whatever?k=<pin> sets the cookie and drops the param.
+  const k = url.searchParams.get("k");
+  if (k !== null) {
+    if (pinMatches(k)) {
+      url.searchParams.delete("k");
+      const res = NextResponse.redirect(url);
+      res.cookies.set(ACCESS_COOKIE, await accessToken(), COOKIE_OPTS);
+      return res;
+    }
+  }
+
+  if (await hasAccess(req.cookies.get(ACCESS_COOKIE)?.value)) return NextResponse.next();
+
+  if (url.pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Krever tilgangs-PIN." }, { status: 401 });
+  }
+
+  const unlock = new URL("/apne", req.url);
+  unlock.searchParams.set("next", url.pathname + url.search);
+  return NextResponse.redirect(unlock);
+}
