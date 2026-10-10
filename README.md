@@ -64,6 +64,22 @@ npm run dev              # http://localhost:3000
 Uten `SITE_PIN` er siden åpen. Sett `SITE_PIN=xxxx` i `.env` for å teste låsen –
 da må du innom `/apne` (eller bruke `?k=xxxx` i URL-en) før du slipper inn.
 
+Vil du teste fra mobilen på samme nett, sett `DEV_ORIGINS=<Mac-ens IP>` i `.env` og åpne
+`http://<IP>:3000`.
+
+## Tester
+
+```bash
+npm test                 # kjør alle tester én gang (Vitest)
+npm run test:watch       # kjør på nytt ved endringer
+npm run typecheck        # TypeScript-sjekk
+```
+
+Testene ligger ved siden av koden som `*.test.ts` (f.eks. `lib/money.test.ts`).
+`lib/testFactories.ts` har små byggere for runder, lodd, premier og trekninger.
+CI kjører typesjekk og tester på hver push og pull request, og Docker-imaget
+publiseres bare når de er grønne.
+
 Krever Node 22+ (bruker innebygd `node:sqlite`). Databasen legges i `./data/vinlotteri.sqlite`.
 
 Valgfritt: `npm run seed` lager en demorunde med premier og noen solgte lodd.

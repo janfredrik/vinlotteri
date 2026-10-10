@@ -8,7 +8,7 @@ Kollegialt vinlotteri som erstatter Excel-arket. Se `PRODUCT.md` for brukere og 
 
 - `npm run dev` starter på port 3000. Uten `SITE_PIN` i `.env` er siden åpen.
 - `npm run seed` lager en demorunde. Demodataene er anonymisert.
-- Det finnes ingen tester eller lint. Sjekk endringer med `npx tsc --noEmit` og i nettleseren.
+- `npm test` kjører Vitest-testene (`lib/*.test.ts`), `npm run typecheck` sjekker typer. Det finnes ingen lint. Sjekk UI-endringer i nettleseren.
 - Produksjon er Docker (Unraid) bak SWAG. GitHub Actions bygger imaget ved hver push til `main`.
 
 ## Domene
