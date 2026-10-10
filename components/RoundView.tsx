@@ -6,10 +6,13 @@ import { useRoundState } from "@/lib/useRoundState";
 import { formatPrice } from "@/lib/format";
 import { vinmonopoletImage } from "@/lib/vinmonopolet";
 import { PoletLink, PrizeDialog, PrizeThumb, type PrizeView } from "./PrizeViewer";
-import { NAME_DISPLAY_MAX, gridLabel } from "@/lib/format";
+import { NAME_DISPLAY_MAX, gridLabel, normName } from "@/lib/format";
+import { ME_EVENT, chooseMe, useMe } from "@/lib/me";
 import { weekdayTime } from "@/lib/datetime";
 import Grid, { Crown, type GridCell } from "./Grid";
 import VippsCard from "./VippsCard";
+import { YouChip } from "./MeSquare";
+import { celebrateFrom } from "./Cheers";
 import { PickYourPrize, WishList } from "./WishList";
 import RulesButton from "./RulesButton";
 import Countdown, { formatLeft, useNow } from "@/components/Countdown";
@@ -44,8 +47,39 @@ function writeLocalHolds(roundId: number, holds: LocalHold[]) {
 
 type Step = "form" | "reserved" | "pay";
 
-export default function RoundView({ roundId, initial }: { roundId: number; initial: RoundState }) {
+// Names you bought for without switching profile: don't offer the switch again for them.
+const SKIP_KEY = "vl_me_skip";
+
+function readSkips(): string[] {
+  try {
+    const arr = JSON.parse(localStorage.getItem(SKIP_KEY) || "[]");
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function addSkip(norm: string) {
+  try {
+    localStorage.setItem(SKIP_KEY, JSON.stringify([...new Set([...readSkips(), norm])].slice(-30)));
+  } catch {
+    /* ignore */
+  }
+}
+
+export default function RoundView({
+  roundId,
+  initial,
+  initialMe,
+}: {
+  roundId: number;
+  initial: RoundState;
+  initialMe: string | null;
+}) {
   const { state, refresh, connected } = useRoundState(roundId, initial);
+  const me = useMe(initialMe);
+  // Bought in another name than your profile: offer to switch (once per name).
+  const [switchOffer, setSwitchOffer] = useState<string | null>(null);
   const now = useNow();
   const { round, prizes, cells, draws, money, salesOpen, restrictionActive, vipps } = state;
 
@@ -69,6 +103,12 @@ export default function RoundView({ roundId, initial }: { roundId: number; initi
       /* ignore */
     }
   }, [roundId]);
+
+  // A new profile changes which squares are yours.
+  useEffect(() => {
+    window.addEventListener(ME_EVENT, refresh);
+    return () => window.removeEventListener(ME_EVENT, refresh);
+  }, [refresh]);
 
   // Reconcile local holds against server truth. `mine` comes from the vl_holds cookie,
   // which can lag a refresh behind a fresh reservation (an SSE "update" can reach us
@@ -168,7 +208,36 @@ export default function RoundView({ roundId, initial }: { roundId: number; initi
       return next;
     });
     rememberName();
+    adoptName(hold.name);
     return hold;
+  }
+
+  /** Your first purchase gives you a profile. Buying in someone else's name only offers a switch. */
+  function adoptName(bought: string) {
+    if (me === undefined) return;
+    const norm = normName(bought);
+    if (!me) {
+      chooseMe(bought)
+        .then(() => flash(`Du er ${bought} på denne enheten.`))
+        .catch(() => {});
+    } else if (normName(me) !== norm && !readSkips().includes(norm)) {
+      addSkip(norm);
+      setSwitchOffer(bought);
+    } else if (normName(me) === norm) {
+      setSwitchOffer(null);
+    }
+  }
+
+  async function acceptSwitch() {
+    if (!switchOffer) return;
+    const name = switchOffer;
+    setSwitchOffer(null);
+    try {
+      await chooseMe(name);
+      flash(`Du er ${name} på denne enheten.`);
+    } catch (e) {
+      flash((e as Error).message, "info");
+    }
   }
 
   async function openBuy(cell: GridCell) {
@@ -189,6 +258,8 @@ export default function RoundView({ roundId, initial }: { roundId: number; initi
       }
       return;
     }
+    // Logged in: you buy as yourself unless you type something else.
+    if (me) setName(me.slice(0, NAME_DISPLAY_MAX));
     setPicked({ row: cell.row, col: cell.col });
     setStep("form");
     setDialogOpen(true);
@@ -267,10 +338,70 @@ export default function RoundView({ roundId, initial }: { roundId: number; initi
   const anyWinner = draws.some((d) => d.winnerName);
   const finished = round.status === "drawn" || round.status === "settled";
   const remainingPrizes = prizes.filter((p) => !draws.some((d) => d.prizeId === p.id));
+  // Your own wins this round: the square is yours (this device or your profile) or the name is.
+  const myWins = draws.filter(
+    (d) =>
+      d.winnerName &&
+      d.row &&
+      d.col &&
+      ((!!me && normName(d.winnerName) === normName(me)) ||
+        cells.some((c) => c.mine && c.row === d.row && c.col === d.col)),
+  );
+  const myWinKey = myWins.map((d) => `${d.rank}:${d.col}-${d.row}`).join(",");
+  const bestWin = myWins.length ? myWins.reduce((a, b) => (b.rank < a.rank ? b : a)) : null;
+
+  const cheer = useCallback((col: number, row: number) => {
+    const el = document.querySelector<HTMLElement>(`[data-cell="${col}-${row}"]`);
+    if (el) celebrateFrom(el);
+  }, []);
+
+  // Skål! Each of your wins is celebrated once per device: when you open the round, or live
+  // as it's drawn. Marked as seen only when it actually plays (so a hidden tab waits for you).
+  useEffect(() => {
+    if (!myWinKey) return;
+    const key = `vl_skaal_${roundId}`;
+    let seen: string[] = [];
+    try {
+      seen = JSON.parse(localStorage.getItem(key) || "[]");
+    } catch {
+      /* ignore */
+    }
+    const fresh = myWinKey
+      .split(",")
+      .filter((k) => !seen.includes(k))
+      .sort((a, b) => parseInt(a) - parseInt(b));
+    if (!fresh.length) return;
+    const [col, row] = fresh[0].split(":")[1].split("-").map(Number);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const go = () => {
+      timer = setTimeout(() => {
+        try {
+          localStorage.setItem(key, JSON.stringify([...seen, ...fresh]));
+        } catch {
+          /* ignore */
+        }
+        cheer(col, row);
+      }, 450);
+    };
+    const onShow = () => {
+      if (document.hidden) return;
+      document.removeEventListener("visibilitychange", onShow);
+      go();
+    };
+    if (document.hidden) document.addEventListener("visibilitychange", onShow);
+    else go();
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onShow);
+    };
+  }, [myWinKey, roundId, cheer]);
+
   // Your squares still in the draw; their wishes are saved together, so the first one speaks for all.
+  // With a profile, only the squares in your name: the ones you bought for others keep their own wishes.
   const myOpen = cells.filter(
     (c) =>
       c.mine &&
+      (!me || (!!c.name && normName(c.name) === normName(me))) &&
       (c.status === "sold" || c.status === "held") &&
       !draws.some((d) => d.winnerName && d.row === c.row && d.col === c.col),
   );
@@ -365,12 +496,40 @@ export default function RoundView({ roundId, initial }: { roundId: number; initi
           {mySkipped && round.status === "closed" && (
             <PickYourPrize
               rank={mySkipped.rank}
+              winner={
+                me && mySkipped.winnerName && normName(mySkipped.winnerName) !== normName(me)
+                  ? mySkipped.winnerName
+                  : null
+              }
               prizes={remainingPrizes}
               onChoose={async (prizeId) => {
                 await post({ action: "choose", prizeId });
                 refresh();
               }}
             />
+          )}
+
+          {bestWin && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-gold/60 bg-gold-soft/40 px-4 py-2.5">
+              <p className="flex min-w-0 items-center gap-2 text-plum">
+                {bestWin.rank === 1 && <Crown className="h-3 w-4 shrink-0 text-wine" />}
+                <span>
+                  <span className="font-display text-lg font-semibold text-wine">Hurra!</span> Du vant{" "}
+                  {myWins
+                    .map((d) => `${d.rank}.`)
+                    .sort((a, b) => parseInt(a) - parseInt(b))
+                    .join(" og ")}{" "}
+                  premie.
+                </span>
+              </p>
+              <button
+                type="button"
+                onClick={() => cheer(bestWin.col!, bestWin.row!)}
+                className="shrink-0 rounded-full px-2 py-1 text-sm font-medium text-wine underline decoration-gold decoration-2 underline-offset-4 hover:decoration-wine motion-reduce:hidden"
+              >
+                Feire igjen 🥂
+              </button>
+            </div>
           )}
 
           {/* Grid */}
@@ -464,8 +623,12 @@ export default function RoundView({ roundId, initial }: { roundId: number; initi
                   const img = d.prizeImage || (prize && (prize.image_url || vinmonopoletImage(prize.varenummer)));
                   const prizeName = d.prizeName || prize?.name || "Premie";
                   const varenummer = prize?.varenummer ?? null;
+                  const isMe = !!me && !!d.winnerName && normName(d.winnerName) === normName(me);
                   return (
-                    <li key={`d${d.rank}`} className="flex items-center gap-3 px-3 py-2.5">
+                    <li
+                      key={`d${d.rank}`}
+                      className={`flex items-center gap-3 px-3 py-2.5 ${isMe ? "bg-gold-soft/40" : ""}`}
+                    >
                       <span className="w-5 shrink-0 text-center font-display text-xl font-semibold lining-nums text-wine">
                         {d.rank}
                       </span>
@@ -488,6 +651,7 @@ export default function RoundView({ roundId, initial }: { roundId: number; initi
                         {d.winnerName ? (
                           <p className="leading-tight">
                             <span className="font-semibold text-plum">{d.winnerName}</span>{" "}
+                            {isMe && <YouChip />}{" "}
                             <span className="text-xs lining-nums tabular-nums text-plum/60">
                               rute {d.col}-{d.row}
                             </span>
@@ -649,6 +813,18 @@ export default function RoundView({ roundId, initial }: { roundId: number; initi
                 <p className="text-sm text-plum/60">
                   {holds.length} lodd · Kr {round.ticket_price * holds.length},- til slutt
                 </p>
+                {switchOffer && me && (
+                  <p className="mt-3 text-sm text-plum/70">
+                    Du er <span className="font-semibold text-plum">{me}</span> på denne enheten.{" "}
+                    <button
+                      type="button"
+                      onClick={acceptSwitch}
+                      className="font-medium text-wine underline underline-offset-4"
+                    >
+                      Bytt til {switchOffer}
+                    </button>
+                  </p>
+                )}
 
                 <div className="mt-4 space-y-2">
                   {canAddMore && (

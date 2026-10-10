@@ -1,0 +1,255 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
+import { chooseMe, useMe } from "@/lib/me";
+import { normName } from "@/lib/format";
+import { MeSquare } from "./MeSquare";
+
+const SEARCH_FROM = 10;
+
+/** Top-right profile: a mini grid square with your initials. Tap to pick who you are. */
+export function MeButton() {
+  const me = useMe();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [names, setNames] = useState<string[] | null>(null);
+  const [q, setQ] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [fill, setFill] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const prev = useRef<string | null | undefined>(undefined);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fill the square in once when a profile appears where there was none (not on page load).
+  useEffect(() => {
+    if (prev.current === null && me) {
+      setFill(true);
+      const t = setTimeout(() => setFill(false), 600);
+      prev.current = me;
+      return () => clearTimeout(t);
+    }
+    prev.current = me;
+  }, [me]);
+
+  useEffect(() => {
+    const d = dialogRef.current;
+    if (!d) return;
+    if (open && !d.open) d.showModal();
+    else if (!open && d.open) d.close();
+  }, [open]);
+
+  // Load the list each time the sheet opens, then put focus somewhere sensible. The search
+  // field only gets it with a mouse: on a phone the keyboard would cover the list.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setQ("");
+    setError(null);
+    fetch("/api/me", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        setNames(Array.isArray(data.names) ? data.names : []);
+      })
+      .catch(() => !cancelled && setNames([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !names) return;
+    const d = dialogRef.current;
+    const finePointer = window.matchMedia("(pointer: fine)").matches;
+    const target =
+      (finePointer && d?.querySelector<HTMLElement>("[data-search]")) ||
+      d?.querySelector<HTMLElement>("[data-active]") ||
+      d?.querySelector<HTMLElement>("[data-close]");
+    target?.focus();
+  }, [open, names]);
+
+  const shown = useMemo(() => {
+    if (!names) return [];
+    const needle = normName(q);
+    return needle ? names.filter((n) => normName(n).includes(needle)) : names;
+  }, [names, q]);
+
+  function flash(msg: string) {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 4000);
+  }
+
+  async function pick(name: string | null) {
+    setBusy(true);
+    setError(null);
+    try {
+      await chooseMe(name);
+      setOpen(false);
+      router.refresh();
+      flash(name ? `Hei, ${name} 👋` : "Profilen er glemt på denne enheten.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const meNorm = me ? normName(me) : null;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={me ? `Profil: ${me} – bytt` : "Velg hvem du er"}
+        title={me ? `Du er ${me}` : "Hvem er du?"}
+        className="-m-1 inline-flex h-11 w-11 items-center justify-center rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-wine"
+      >
+        {me === undefined ? (
+          <span className="h-9 w-9" aria-hidden="true" />
+        ) : (
+          <MeSquare name={me} ring={!!me} fill={fill} />
+        )}
+      </button>
+
+      <dialog
+        ref={dialogRef}
+        aria-labelledby="meg-tittel"
+        onClose={() => setOpen(false)}
+        onClick={(e) => e.target === dialogRef.current && !busy && setOpen(false)}
+        className="mx-auto mb-4 mt-auto w-[calc(100%-2rem)] max-w-md animate-pop rounded-2xl bg-cream p-0 text-plum shadow-[0_20px_50px_-12px_rgba(44,10,20,0.45)] sm:my-auto"
+      >
+        {open && (
+          <div className="flex max-h-[min(36rem,calc(100dvh-3rem))] flex-col p-5">
+            <div className="flex items-center justify-between">
+              <h3 id="meg-tittel" className="font-display text-xl font-semibold text-wine">
+                Hvem er du?
+              </h3>
+              <button
+                type="button"
+                data-close
+                onClick={() => setOpen(false)}
+                aria-label="Lukk"
+                className="-my-2 -mr-2.5 inline-flex h-11 w-11 items-center justify-center rounded-full text-plum/60 transition-colors hover:bg-plum/5 hover:text-plum"
+              >
+                <svg
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                >
+                  <path d="m5.5 5.5 9 9m0-9-9 9" />
+                </svg>
+              </button>
+            </div>
+            <p className="mt-1 text-sm text-plum/70">
+              Rutene dine blir merket på alle enheter du velger deg på.
+            </p>
+
+            {names && names.length > SEARCH_FROM && (
+              <label className="mt-4 block">
+                <span className="sr-only">Søk etter navn</span>
+                <input
+                  data-search
+                  type="search"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Søk etter navn"
+                  autoComplete="off"
+                  className="w-full rounded-lg border border-plum/20 bg-white px-3 py-2 text-base placeholder:text-plum/45"
+                />
+              </label>
+            )}
+
+            <div className="-mx-2 mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain px-2">
+              {names === null ? (
+                <p className="py-4 text-sm text-plum/60">
+                  Henter navn
+                  <span className="dots" />
+                </p>
+              ) : names.length === 0 ? (
+                <p className="py-4 text-sm text-plum/70">
+                  Ingen har kjøpt lodd ennå. Kjøp en rute, så blir du valgt automatisk.
+                </p>
+              ) : shown.length === 0 ? (
+                <p className="py-4 text-sm text-plum/70">Ingen navn passer «{q.trim()}».</p>
+              ) : (
+                <ul className="divide-y divide-plum/10">
+                  {shown.map((n) => {
+                    const active = normName(n) === meNorm;
+                    return (
+                      <li key={n}>
+                        <button
+                          type="button"
+                          data-active={active || undefined}
+                          disabled={busy}
+                          aria-current={active || undefined}
+                          onClick={() => (active ? setOpen(false) : pick(n))}
+                          className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-parchment/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-wine disabled:opacity-60"
+                        >
+                          <MeSquare name={n} size="sm" ring={active} />
+                          <span
+                            className={`min-w-0 flex-1 truncate ${active ? "font-semibold text-wine" : "font-medium"}`}
+                          >
+                            {n}
+                          </span>
+                          {active && (
+                            <svg
+                              viewBox="0 0 20 20"
+                              aria-hidden="true"
+                              className="h-5 w-5 shrink-0 text-wine"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="m4.5 10.5 3.5 3.5 7.5-8" />
+                            </svg>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            {error && <p className="mt-2 text-sm text-wine">{error}</p>}
+
+            {me && (
+              <button
+                type="button"
+                onClick={() => pick(null)}
+                disabled={busy}
+                className="mt-4 self-center py-1 text-sm text-plum/60 underline underline-offset-4 hover:text-wine"
+              >
+                Glem meg på denne enheten
+              </button>
+            )}
+          </div>
+        )}
+      </dialog>
+
+      {/* Portal: the header's backdrop-blur would otherwise make `fixed` relative to the header. */}
+      {toast &&
+        createPortal(
+          <div
+            role="status"
+            className="fixed bottom-4 left-1/2 z-50 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 animate-pop rounded-2xl bg-sage px-5 py-2 text-center text-sm font-medium text-white shadow-lg"
+          >
+            {toast}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}

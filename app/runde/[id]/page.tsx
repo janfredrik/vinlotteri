@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { buildRoundState } from "@/lib/repo";
+import { buildRoundState, myCellIds } from "@/lib/repo";
 import { readHoldIds } from "@/lib/holds-cookie";
+import { readMe } from "@/lib/me-cookie";
 import { vippsPresentation } from "@/lib/present";
 import RoundView from "@/components/RoundView";
 
@@ -10,8 +11,9 @@ export default async function RoundPage({ params }: { params: Promise<{ id: stri
   const id = Number((await params).id);
   if (!Number.isFinite(id)) notFound();
   // Your own squares (and wishes) are known from the first paint, not only after the first live update.
-  const state = buildRoundState(id, await readHoldIds());
+  const me = await readMe();
+  const state = buildRoundState(id, myCellIds(id, await readHoldIds(), me));
   if (!state) notFound();
   const vipps = await vippsPresentation(state.round);
-  return <RoundView roundId={id} initial={{ ...state, vipps }} />;
+  return <RoundView roundId={id} initial={{ ...state, vipps }} initialMe={me} />;
 }

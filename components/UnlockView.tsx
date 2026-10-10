@@ -146,7 +146,7 @@ function UnlockForm() {
 
       <p id="pin-status" role="status" className="mt-3 min-h-5 text-sm">
         {phase === "wrong" && <span className="text-wine">Feil PIN. Glasset er tømt, prøv igjen.</span>}
-        {phase === "ok" && <span className="font-display italic text-wine">Skål!</span>}
+        {phase === "ok" && <span className="font-display italic text-wine">Lykke til!</span>}
       </p>
 
       <button

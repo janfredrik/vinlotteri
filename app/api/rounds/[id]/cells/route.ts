@@ -4,6 +4,8 @@ import {
   confirmCell,
   getRound,
   holdCell,
+  myCellIds,
+  wishCellIds,
   ownSkippedChoice,
   releaseCell,
   restrictionActive,
@@ -14,6 +16,7 @@ import {
 import { onStatusChange } from "@/lib/notify";
 import { notifyRound } from "@/lib/events";
 import { readHoldIds, writeHoldIds } from "@/lib/holds-cookie";
+import { readMe } from "@/lib/me-cookie";
 import { num } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -75,7 +78,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (action === "wishes") {
     if (round.status === "drawn" || round.status === "settled")
       return NextResponse.json({ error: "Trekningen er ferdig." }, { status: 409 });
-    const err = setWishes(roundId, holdIds, Array.isArray(body.prizeIds) ? body.prizeIds : []);
+    const err = setWishes(roundId, wishCellIds(roundId, holdIds, await readMe()), Array.isArray(body.prizeIds) ? body.prizeIds : []);
     if (err) return NextResponse.json({ error: err }, { status: 409 });
     notifyRound(roundId);
     return NextResponse.json({ ok: true });
@@ -86,7 +89,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (round.status !== "closed") return NextResponse.json({ error: "Trekningen pågår ikke." }, { status: 409 });
     const prizeId = num(body.prizeId);
     if (prizeId == null) return NextResponse.json({ error: "Velg en premie." }, { status: 400 });
-    const err = ownSkippedChoice(roundId, holdIds, prizeId);
+    const err = ownSkippedChoice(roundId, myCellIds(roundId, holdIds, await readMe()), prizeId);
     if (err) return NextResponse.json({ error: err }, { status: 409 });
     if (syncAfterChoice(roundId) === "drawn") onStatusChange(roundId, "drawn");
     notifyRound(roundId);
@@ -94,7 +97,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   if (action === "state") {
-    return NextResponse.json(buildRoundState(roundId, holdIds));
+    return NextResponse.json(buildRoundState(roundId, myCellIds(roundId, holdIds, await readMe())));
   }
 
   return NextResponse.json({ error: "Ukjent handling." }, { status: 400 });

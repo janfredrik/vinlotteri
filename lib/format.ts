@@ -17,3 +17,27 @@ export function formatPrice(n: number): string {
 export function kr(n: number): string {
   return `kr ${n < 0 ? "−" : ""}${Math.abs(n)}`;
 }
+
+/** How names are compared everywhere: case and extra spaces don't matter. */
+export function normName(s: string): string {
+  return (s || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** The profile square's text: short names ("JF", "ef") as they are, joined-up names by their
+ *  capitals ("OlaN" -> "ON", "KariAnne" -> "KA"), otherwise the first letter of the first two
+ *  words ("Per H" -> "PH", "Nora" -> "N"). */
+export function initials(name: string): string {
+  const t = name.trim().replace(/\s+/g, " ");
+  if (!t) return "?";
+  if (!t.includes(" ") && t.length <= 3) return t.toLocaleUpperCase("nb-NO");
+  if (!t.includes(" ")) {
+    const caps = [...t].filter((ch, i) => i > 0 && /\p{Lu}/u.test(ch));
+    if (caps.length) return ([...t][0] + caps[0]).toLocaleUpperCase("nb-NO");
+  }
+  return t
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => [...w][0])
+    .join("")
+    .toLocaleUpperCase("nb-NO");
+}

@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { computeMoney } from "@/lib/money";
-import { computeStats, getCells, getDraws, getPrizes, listRounds } from "@/lib/repo";
+import { computeStats, getCells, getDraws, getPrizes, listRounds, personStats, type PersonStats } from "@/lib/repo";
+import { readMe } from "@/lib/me-cookie";
+import { normName } from "@/lib/format";
+import { MeSquare, YouChip } from "./MeSquare";
+import { Crown } from "./Grid";
 import { prizeOfDraw } from "@/lib/phases";
 import type { Draw, LotteryStats, MoneySummary, Prize, Round, SquareHeat } from "@/lib/types";
 
@@ -49,7 +53,8 @@ interface RoundRow {
   money: MoneySummary;
 }
 
-export default function HistoryPage() {
+export default async function HistoryPage() {
+  const me = await readMe();
   const rounds = listRounds();
   const done = rounds.filter((r) => r.status === "drawn" || r.status === "settled");
 
@@ -90,7 +95,12 @@ export default function HistoryPage() {
           <Num>{stats.totalWins}</Num> premier fordelt på <Num>{winnerNames.size}</Num> forskjellige vinnere.
           Potten er nå på <Num>{kr(latest.money.videre)} kr</Num>.
         </p>
+        {!me && (
+          <p className="text-sm text-plum/60">Velg hvem du er øverst til høyre for å se dine tall.</p>
+        )}
       </header>
+
+      {me && <YourNumbers name={me} stats={personStats(done.map((r) => r.id), me)} />}
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
         {chrono.length > 1 && <WeekCharts rows={chrono} />}
@@ -99,8 +109,62 @@ export default function HistoryPage() {
 
       <Leaderboards stats={stats} />
 
-      <RoundLedger rows={rows} />
+      <RoundLedger rows={rows} me={me} />
     </div>
+  );
+}
+
+/** "Dine tall": your own line in the history, told as a sentence like the intro above it. */
+function YourNumbers({ name, stats }: { name: string; stats: PersonStats }) {
+  const { lodd, rounds, wins, firstPrizes, luckySquare } = stats;
+  return (
+    <section
+      aria-labelledby="dine-tall"
+      className="flex items-start gap-4 rounded-xl border border-gold/40 bg-gold-soft/20 p-4 sm:p-5"
+    >
+      <MeSquare name={name} ring />
+      <div className="min-w-0 space-y-1">
+        <h2 id="dine-tall" className="font-display text-xl font-semibold text-plum">
+          Dine tall, {name}
+        </h2>
+        {lodd === 0 && wins === 0 ? (
+          <p className="text-pretty text-plum/70">
+            Ingen lodd i ferdige runder ennå. Kjøp en rute, så begynner historien din her.
+          </p>
+        ) : (
+          <p className="max-w-2xl text-pretty text-plum/70">
+            Du har kjøpt <Num>{lodd}</Num> lodd i <Num>{rounds}</Num> runde{rounds === 1 ? "" : "r"} og{" "}
+            {wins === 0 ? (
+              <>venter fortsatt på første seier.</>
+            ) : (
+              <>
+                vunnet <Num>{wins}</Num> premie{wins === 1 ? "" : "r"}
+                {firstPrizes > 0 && (
+                  <>
+                    {" "}
+                    (<Crown className="inline h-2.5 w-3.5 -translate-y-px text-wine" />{" "}
+                    <Num>{firstPrizes}</Num> førstepremie{firstPrizes === 1 ? "" : "r"})
+                  </>
+                )}
+                .
+              </>
+            )}
+            {luckySquare && (
+              <>
+                {" "}
+                {luckySquare.wins > 0 ? "Lykkeruta" : "Favorittruta"} di er{" "}
+                <Num>
+                  {luckySquare.col}-{luckySquare.row}
+                </Num>
+                {luckySquare.wins > 0
+                  ? ` – der har du vunnet ${luckySquare.wins === 1 ? "én gang" : `${luckySquare.wins} ganger`}.`
+                  : ` – kjøpt ${luckySquare.sold === 1 ? "én gang" : `${luckySquare.sold} ganger`}.`}
+              </>
+            )}
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -487,7 +551,7 @@ function Leaderboards({ stats }: { stats: LotteryStats }) {
 
 /* ---------- Alle runder ---------- */
 
-function RoundLedger({ rows }: { rows: RoundRow[] }) {
+function RoundLedger({ rows, me }: { rows: RoundRow[]; me: string | null }) {
   return (
     <section>
       <div className="mb-3 flex items-baseline justify-between gap-4">
@@ -503,7 +567,7 @@ function RoundLedger({ rows }: { rows: RoundRow[] }) {
         </div>
         <ol className="divide-y divide-plum/10">
           {rows.map((r) => (
-            <RoundEntry key={r.round.id} row={r} />
+            <RoundEntry key={r.round.id} row={r} me={me} />
           ))}
         </ol>
       </div>
@@ -511,7 +575,7 @@ function RoundLedger({ rows }: { rows: RoundRow[] }) {
   );
 }
 
-function RoundEntry({ row }: { row: RoundRow }) {
+function RoundEntry({ row, me }: { row: RoundRow; me: string | null }) {
   const { round, prizes, draws, money } = row;
   const winners = draws.filter((d) => d.winner_name).sort((a, b) => a.rank - b.rank);
   const delta = money.videre - money.carriedOver;
@@ -536,12 +600,17 @@ function RoundEntry({ row }: { row: RoundRow }) {
         <ol className="space-y-1 text-sm md:self-start">
           {winners.map((d) => {
             const name = prizeName(prizeOfDraw(prizes, d)?.name);
+            const isMe = !!me && normName(d.winner_name!) === normName(me);
             return (
-              <li key={d.rank} className="flex min-w-0 items-baseline gap-2">
+              <li
+                key={d.rank}
+                className={`flex min-w-0 items-baseline gap-2 ${isMe ? "-mx-1.5 rounded-md bg-gold-soft/40 px-1.5" : ""}`}
+              >
                 <span className="w-4 shrink-0 text-right text-xs font-semibold text-plum/60 tabular-nums">
                   {d.rank}
                 </span>
                 <span className="shrink-0 font-medium">{d.winner_name}</span>
+                {isMe && <YouChip />}
                 {name && (
                   <span className="min-w-0 truncate text-plum/60" title={name}>
                     {name}

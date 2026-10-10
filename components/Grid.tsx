@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { CellStatus } from "@/lib/types";
+import { STATUS_STYLES } from "@/lib/cellStyles";
 
 export interface GridCell {
   row: number;
@@ -25,11 +26,6 @@ interface GridProps {
   compact?: boolean;
 }
 
-const STATUS_STYLES: Record<CellStatus, string> = {
-  available: "bg-white border-plum/10 text-plum/60 shadow-[0_1px_0_rgba(44,10,20,0.06)]",
-  held: "cell-held border-gold/70 text-plum",
-  sold: "bg-wine border-wine-dark text-cream shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(44,10,20,0.25)]",
-};
 
 const STATUS_TEXT: Record<CellStatus, string> = {
   available: "ledig",
@@ -126,6 +122,7 @@ export default function Grid({
                   <button
                     key={isNudged ? `${key}:${nudge.n}` : key}
                     type="button"
+                    data-cell={coord}
                     disabled={!clickable && !isLocked}
                     aria-disabled={isLocked || undefined}
                     onClick={() => {

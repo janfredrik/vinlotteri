@@ -428,3 +428,16 @@ dialog::backdrop {
 @media (prefers-reduced-motion: reduce) {
   .overtime-glass { animation: none; }
 }
+
+/* Profile square: the first time you get a profile it fills in from the bottom, like a
+   free square becoming yours. */
+@keyframes me-fill {
+  from { clip-path: inset(100% 0 0 0 round 0.375rem); }
+  to { clip-path: inset(0 0 0 0 round 0.375rem); }
+}
+.animate-me-fill {
+  animation: me-fill 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-me-fill { animation: none; }
+}

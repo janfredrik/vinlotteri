@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { normName } from "./format";
 import { computeMoney } from "./money";
 import { makeSeed, seededRolls } from "./draw";
 import { vinmonopoletImage } from "./vinmonopolet";
@@ -18,9 +19,7 @@ import type {
   RoundStatus,
 } from "./types";
 
-export function normName(s: string): string {
-  return (s || "").trim().toLowerCase().replace(/\s+/g, " ");
-}
+export { normName };
 
 /** node:sqlite returns rows with a null prototype; clone to plain objects so they
  *  can cross the server -> client component boundary. */
@@ -593,6 +592,23 @@ export function syncAfterChoice(roundId: number): RoundStatus | null {
   return next;
 }
 
+/** The viewer's squares: the ones this device reserved, plus everything bought in the
+ *  profile's name (so they follow you across devices). */
+export function myCellIds(roundId: number, holdIds: number[], me: string | null): number[] {
+  if (!me) return holdIds;
+  const rows = db
+    .prepare("SELECT id FROM cells WHERE round_id = ? AND buyer_name_norm = ? AND status IN ('held','sold')")
+    .all(roundId, normName(me)) as { id: number }[];
+  return [...new Set([...holdIds, ...rows.map((r) => r.id)])];
+}
+
+/** Squares whose prize wishes you set. Wishes belong to a person: with a profile only the
+ *  squares in your name, so buying for a colleague on your phone never touches their wishes.
+ *  Without one, the squares this device reserved. */
+export function wishCellIds(roundId: number, holdIds: number[], me: string | null): number[] {
+  return me ? myCellIds(roundId, [], me) : holdIds;
+}
+
 /** A skipped winner picks for themselves (from their phone). `mineCellIds` proves the square is theirs. */
 export function ownSkippedChoice(roundId: number, mineCellIds: number[], prizeId: number): string | null {
   const draw = skippedWinners(getDraws(roundId)).find(
@@ -790,6 +806,50 @@ export function buildRoundState(roundId: number, mineCellIds: number[] = []): Ro
 }
 
 /* ------------------------------------------------------------------ stats --- */
+
+export interface PersonStats {
+  lodd: number;
+  rounds: number;
+  wins: number;
+  firstPrizes: number;
+  /** The square you've won on most, else the one you've bought most. */
+  luckySquare: { row: number; col: number; wins: number; sold: number } | null;
+}
+
+/** One person's own numbers across a set of rounds (the "Dine tall" line on /historikk). */
+export function personStats(roundIds: number[], name: string): PersonStats {
+  const norm = normName(name);
+  const rounds = new Set<number>();
+  const squares = new Map<string, { row: number; col: number; wins: number; sold: number }>();
+  const square = (row: number, col: number) => {
+    const key = `${row},${col}`;
+    const s = squares.get(key) ?? { row, col, wins: 0, sold: 0 };
+    squares.set(key, s);
+    return s;
+  };
+  let lodd = 0;
+  let wins = 0;
+  let firstPrizes = 0;
+
+  for (const roundId of roundIds) {
+    for (const c of getCells(roundId)) {
+      if (!inDraw(c) || c.buyer_name_norm !== norm) continue;
+      lodd += 1;
+      rounds.add(roundId);
+      square(c.row, c.col).sold += 1;
+    }
+    for (const d of getDraws(roundId)) {
+      if (!d.winner_name || normName(d.winner_name) !== norm) continue;
+      wins += 1;
+      if (d.rank === 1) firstPrizes += 1;
+      if (d.row && d.col) square(d.row, d.col).wins += 1;
+    }
+  }
+
+  const luckySquare =
+    [...squares.values()].sort((a, b) => b.wins - a.wins || b.sold - a.sold)[0] ?? null;
+  return { lodd, rounds: rounds.size, wins, firstPrizes, luckySquare };
+}
 
 // Minimum lodd before someone's win-rate counts, so one lucky ticket doesn't top the list.
 const MIN_LODD_FOR_LUCK_INDEX = 5;

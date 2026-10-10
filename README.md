@@ -35,6 +35,11 @@ Bildene viser anonyme demodata.
 - **Live rutenett** – ledige/opptatte ruter oppdateres i sanntid (Server-Sent Events).
 - **Kjøp uten innlogging** – velg rute, skriv navn/initialer. Etter første rute
   får du valget «legg til en rute til» eller «gå til betaling», og betaler samlet for alle rutene.
+- **Profil uten passord** – navnet du kjøper med blir profilen din på enheten (ruta øverst til høyre
+  med initialene dine). Velg deg selv fra lista på en annen enhet, så er rutene dine merket der også,
+  vinnerlistene viser «Deg!», og historikken viser dine egne tall. Hvem som helst kan velge hvem som
+  helst – det er en snarvei, ikke sikkerhet. «Jeg har betalt» og «Angre» virker bare på enheten
+  som reserverte ruta.
 - **Vipps** – QR + nummer per runde, generert fra Vippsnummeret («Vipps meg»-lenke). Personlig
   Vippsnummer som byttes hver runde (vinner arrangerer neste) – påkrevd for å åpne loddsalget.
 - **Premier fra Vinmonopolet** – lim inn URL/varenummer, info hentes automatisk. Med en gratis

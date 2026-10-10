@@ -231,10 +231,13 @@ function SaveBadge({ status, count, saves }: { status: "idle" | "saving" | "save
 /** You won while you were away and were skipped: pick from what is left, right here. */
 export function PickYourPrize({
   rank,
+  winner,
   prizes,
   onChoose,
 }: {
   rank: number;
+  /** Set when you're choosing for someone else (a square you bought for them on this device). */
+  winner?: string | null;
   prizes: Prize[];
   onChoose: (prizeId: number) => Promise<void>;
 }) {
@@ -255,9 +258,13 @@ export function PickYourPrize({
 
   return (
     <section className="rounded-xl border border-gold bg-gradient-to-br from-gold-soft/70 to-cream p-4 shadow-sm">
-      <h2 className="font-display text-2xl font-semibold text-wine">Du vant! 🎉</h2>
+      <h2 className="font-display text-2xl font-semibold text-wine">
+        {winner ? `${winner} vant! 🎉` : "Du vant! 🎉"}
+      </h2>
       <p className="mt-1 text-sm text-plum/80">
-        Du ble trukket som {rank}. vinner mens du var borte. Velg premien du vil ha blant de som er igjen.
+        {winner
+          ? `${winner} ble trukket som ${rank}. vinner, men var ikke til stede. Du kjøpte ruta, så du kan velge premie for ${winner} blant de som er igjen.`
+          : `Du ble trukket som ${rank}. vinner mens du var borte. Velg premien du vil ha blant de som er igjen.`}
       </p>
       <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {prizes.map((p) => {
