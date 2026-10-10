@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { guardAccess, num } from "@/lib/http";
+import { HISTORY_EDIT } from "@/lib/access";
 import { db } from "@/lib/db";
 import { computeMoney } from "@/lib/money";
 import {
@@ -42,6 +43,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     vipps: await vippsPresentation(round),
     successor: (({ id, title }) => ({ id, title }))(getSuccessor(id) ?? { id: 0, title: "" }),
     knownNames: knownBuyerNames(),
+    historyEdit: HISTORY_EDIT,
     now: new Date().toISOString(),
   });
 }

@@ -41,8 +41,13 @@ export function getRound(id: number): Round | undefined {
   return plain<Round>(db.prepare("SELECT * FROM rounds WHERE id = ?").get(id));
 }
 
+/** Rounds in the order they ran. Not by id: imported history gets ids after the live rounds.
+ *  datetime() evens out the two formats in use (SQLite's "now" and the import's ISO string). */
+const CHRONO = "datetime(created_at), id";
+const CHRONO_DESC = "datetime(created_at) DESC, id DESC";
+
 export function listRounds(): Round[] {
-  return plainAll<Round>(db.prepare("SELECT * FROM rounds ORDER BY id DESC").all());
+  return plainAll<Round>(db.prepare(`SELECT * FROM rounds ORDER BY ${CHRONO_DESC}`).all());
 }
 
 export interface RoundSummary {
@@ -61,13 +66,30 @@ export interface RoundSummary {
   drawn: number;
   videre: number;
   firstWinner: string | null;
+  /** Winners recorded by name only, with no square (imported history). */
+  unplaced: number;
   hasSuccessor: boolean;
+  year: number;
 }
 
-/** Every round with the few numbers the admin overview needs, newest first. */
-export function listRoundSummaries(): RoundSummary[] {
-  const rounds = listRounds();
-  return rounds.map((r, i) => {
+/** The year a round ran. created_at is either SQLite's "2026-10-09 13:16:53" or the import's ISO string. */
+function roundYear(r: Round): number {
+  return Number(r.created_at.slice(0, 4));
+}
+
+/** Years with settled rounds, newest first. */
+export function settledYears(): number[] {
+  return [...new Set(listRounds().filter((r) => r.status === "settled").map(roundYear))];
+}
+
+/**
+ * Rounds with the few numbers the admin overview needs, newest first.
+ * `year` limits the settled rounds to that year; rounds still in progress are always included.
+ * Without it, every round comes back.
+ */
+export function listRoundSummaries(year?: number): RoundSummary[] {
+  return listRounds().flatMap((r, i) => {
+    if (year != null && r.status === "settled" && roundYear(r) !== year) return [];
     const cells = getCells(r.id);
     const prizes = getPrizes(r.id);
     const draws = getDraws(r.id);
@@ -89,8 +111,10 @@ export function listRoundSummaries(): RoundSummary[] {
       // Imported history can carry øre in the Polet cost; the overview shows whole kroner.
       videre: Math.round(money.videre),
       firstWinner: draws.find((d) => d.rank === 1 && d.winner_name)?.winner_name ?? null,
+      unplaced: draws.filter((d) => d.winner_name && d.winner_cell_id == null).length,
       // Rounds run week after week, so any later round is the successor (see getSuccessor).
       hasSuccessor: i > 0,
+      year: roundYear(r),
     };
   });
 }
@@ -99,17 +123,17 @@ export function listRoundSummaries(): RoundSummary[] {
 export function getActiveRound(): Round | undefined {
   return (
     plain<Round>(
-      db.prepare("SELECT * FROM rounds WHERE status = 'open' ORDER BY id DESC LIMIT 1").get(),
+      db.prepare(`SELECT * FROM rounds WHERE status = 'open' ORDER BY ${CHRONO_DESC} LIMIT 1`).get(),
     ) ??
     plain<Round>(
       db
         .prepare(
-          "SELECT * FROM rounds WHERE status IN ('closed','drawn','settled') ORDER BY id DESC LIMIT 1",
+          `SELECT * FROM rounds WHERE status IN ('closed','drawn','settled') ORDER BY ${CHRONO_DESC} LIMIT 1`,
         )
         .get(),
     ) ??
     plain<Round>(
-      db.prepare("SELECT * FROM rounds WHERE status = 'draft' ORDER BY id DESC LIMIT 1").get(),
+      db.prepare(`SELECT * FROM rounds WHERE status = 'draft' ORDER BY ${CHRONO_DESC} LIMIT 1`).get(),
     )
   );
 }
@@ -178,7 +202,14 @@ export function setRoundStatus(id: number, status: RoundStatus): void {
 /** The round that follows this one. Rounds run strictly week after week, so any later round
  *  counts - also for the imported history, which has no explicit link between rounds. */
 export function getSuccessor(id: number): Round | undefined {
-  return plain<Round>(db.prepare("SELECT * FROM rounds WHERE id > ? ORDER BY id LIMIT 1").get(id));
+  return plain<Round>(
+    db
+      .prepare(
+        `SELECT * FROM rounds WHERE (datetime(created_at), id) >
+          (SELECT datetime(created_at), id FROM rounds WHERE id = ?) ORDER BY ${CHRONO} LIMIT 1`,
+      )
+      .get(id),
+  );
 }
 
 /** Copy a round's setup into a fresh draft, carrying the balance forward. Only once per round:
@@ -743,6 +774,29 @@ export function physicalDraw(roundId: number, rank: number, row: number, col: nu
     seed: null,
     recorded: true,
   };
+}
+
+/** History correction (HISTORY_EDIT): set which square won draw `rank` after the fact, or clear
+ *  it with null. The winner's name follows the square. Prize choice and money are untouched.
+ *  Returns an error, if any. */
+export function setDrawSquare(roundId: number, rank: number, cellId: number | null): string | null {
+  const draw = getDraws(roundId).find((d) => d.rank === rank);
+  if (!draw) return "Trekningen finnes ikke.";
+  if (cellId == null) {
+    db.prepare("UPDATE draws SET winner_cell_id = NULL, row = NULL, col = NULL WHERE id = ?").run(draw.id);
+    return null;
+  }
+  const cell = plain<Cell>(db.prepare("SELECT * FROM cells WHERE id = ? AND round_id = ?").get(cellId, roundId));
+  if (!cell || !inDraw(cell)) return "Ruten er ikke solgt.";
+  if (takenCellIds(roundId, rank).has(cell.id)) return `Rute ${cell.col}-${cell.row} har allerede vunnet en annen premie.`;
+  db.prepare("UPDATE draws SET winner_cell_id = ?, row = ?, col = ?, winner_name = ? WHERE id = ?").run(
+    cell.id,
+    cell.row,
+    cell.col,
+    cell.buyer_name,
+    draw.id,
+  );
+  return null;
 }
 
 /** Digital draw: server rolls a verifiable seed, skipping empty/taken squares. */

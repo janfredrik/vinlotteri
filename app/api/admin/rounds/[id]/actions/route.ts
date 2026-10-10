@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { guardAccess, num } from "@/lib/http";
+import { HISTORY_EDIT } from "@/lib/access";
 import { notifyRound } from "@/lib/events";
 import { onStatusChange } from "@/lib/notify";
 import {
@@ -20,6 +21,7 @@ import {
   movePrize,
   physicalDraw,
   setCellPaid,
+  setDrawSquare,
   setRoundStatus,
   skipChoice,
   syncAfterChoice,
@@ -47,7 +49,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // A settled round is history: the money has been carried forward, so nothing may change
   // until the settlement is undone.
   // Correcting a buyer's name is the exception - it's history the stats read, not money.
-  if (round.status === "settled" && type !== "status" && type !== "next" && type !== "cellRename")
+  // So is correcting a winning square, but only while HISTORY_EDIT is switched on.
+  if (round.status === "settled" && type !== "status" && type !== "next" && type !== "cellRename" && type !== "drawSquare")
     return conflict("Runden er gjort opp. Angre oppgjøret først hvis noe må endres.");
 
   switch (type) {
@@ -131,6 +134,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       if (rank == null) return NextResponse.json({ error: "Mangler premie." }, { status: 400 });
       clearDraw(roundId, rank);
       if (round.status === "drawn") setRoundStatus(roundId, "closed");
+      break;
+    }
+    case "drawSquare": {
+      if (!HISTORY_EDIT) return NextResponse.json({ error: "Retting av historikk er ikke slått på." }, { status: 403 });
+      if (round.status !== "settled") return conflict("Bare avsluttede runder kan rettes her.");
+      const rank = num(body.rank);
+      if (rank == null) return NextResponse.json({ error: "Mangler trekning." }, { status: 400 });
+      const cellId = body.cellId == null ? null : num(body.cellId);
+      const err = setDrawSquare(roundId, rank, cellId);
+      if (err) return conflict(err);
       break;
     }
     case "cellPaid": {

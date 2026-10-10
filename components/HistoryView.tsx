@@ -5,22 +5,9 @@ import { readMe } from "@/lib/me-cookie";
 import { normName } from "@/lib/format";
 import { MeSquare, YouChip } from "./MeSquare";
 import { Crown } from "./Grid";
+import Receipt, { KR_INT, kr, signed } from "./Receipt";
 import { prizeOfDraw } from "@/lib/phases";
 import type { Draw, LotteryStats, MoneySummary, Prize, Round, SquareHeat } from "@/lib/types";
-
-/** Whole kroner stay whole; legacy rows with øre get exactly two decimals. */
-const KR_INT = new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 0 });
-const KR_DEC = new Intl.NumberFormat("nb-NO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-function kr(n: number): string {
-  const r = Math.round(n * 100) / 100;
-  return (Number.isInteger(r) ? KR_INT : KR_DEC).format(r);
-}
-
-function signed(n: number): string {
-  const r = Math.round(n * 100) / 100;
-  return r > 0 ? `+${kr(r)}` : kr(r);
-}
 
 /** "Uke 36 – 2026" -> "Uke 36"; "Uke 36" -> "36" when short. */
 function weekLabel(title: string, fallback: string): string {
@@ -46,6 +33,17 @@ function competitionRanks(values: number[]): number[] {
   });
 }
 
+/** The year a round ran. created_at is either SQLite's "2026-10-09 13:16:53" or the import's ISO string. */
+function roundYear(r: Round): number {
+  return Number(r.created_at.slice(0, 4));
+}
+
+/** "Uke 36" within one year; the full "Uke 36 – 2025" once several years share the page. */
+function roundLabel(round: Round, withYear: boolean): string {
+  const fallback = `Runde ${round.id}`;
+  return withYear ? round.title.trim() || fallback : weekLabel(round.title, fallback);
+}
+
 interface RoundRow {
   round: Round;
   prizes: Prize[];
@@ -53,10 +51,17 @@ interface RoundRow {
   money: MoneySummary;
 }
 
-export default async function HistoryPage() {
+/** `ar` is a year, "alle", or empty for the year of the latest drawn round. */
+export default async function HistoryPage({ ar }: { ar?: string }) {
   const me = await readMe();
   const rounds = listRounds();
-  const done = rounds.filter((r) => r.status === "drawn" || r.status === "settled");
+  const allDone = rounds.filter((r) => r.status === "drawn" || r.status === "settled");
+
+  const years = [...new Set(allDone.map(roundYear))];
+  const all = ar === "alle" && years.length > 1;
+  const year = all ? null : years.includes(Number(ar)) ? Number(ar) : years[0];
+  const done = year == null ? allDone : allDone.filter((r) => roundYear(r) === year);
+  const withYear = all;
 
   const rows: RoundRow[] = done.map((r) => {
     const prizes = getPrizes(r.id);
@@ -83,17 +88,22 @@ export default async function HistoryPage() {
   const winnerNames = new Set(
     rows.flatMap((r) => r.draws.filter((d) => d.winner_name).map((d) => d.winner_name!.trim().toLowerCase())),
   );
-  const first = chrono[0].round;
-  const latest = rows[0];
+  // The pot is whatever the latest round carried forward, whichever year is shown.
+  const latest = allDone[0];
+  const pot = computeMoney(latest, getCells(latest.id), getPrizes(latest.id)).videre;
 
   return (
     <div className="space-y-10">
       <header className="space-y-2">
-        <h1 className="font-display text-3xl font-semibold text-wine">Historikk</h1>
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <h1 className="font-display text-3xl font-semibold text-wine">Historikk</h1>
+          {years.length > 1 && <YearPicker years={years} selected={year} />}
+        </div>
         <p className="max-w-2xl text-pretty text-plum/70">
+          {year != null ? <>I {year} er det </> : <>Gjennom alle år er det </>}
           <Num>{KR_INT.format(totalLodd)}</Num> lodd solgt for <Num>{KR_INT.format(totalOmsatt)} kr</Num>, og{" "}
           <Num>{stats.totalWins}</Num> premier fordelt på <Num>{winnerNames.size}</Num> forskjellige vinnere.
-          Potten er nå på <Num>{kr(latest.money.videre)} kr</Num>.
+          Potten er nå på <Num>{kr(pot)} kr</Num>.
         </p>
         {!me && (
           <p className="text-sm text-plum/60">Velg hvem du er øverst til høyre for å se dine tall.</p>
@@ -103,13 +113,13 @@ export default async function HistoryPage() {
       {me && <YourNumbers name={me} stats={personStats(done.map((r) => r.id), me)} />}
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
-        {chrono.length > 1 && <WeekCharts rows={chrono} />}
+        {chrono.length > 1 && <WeekCharts rows={chrono} withYear={withYear} />}
         <HeatmapPanel stats={stats} />
       </div>
 
       <Leaderboards stats={stats} />
 
-      <RoundLedger rows={rows} me={me} />
+      <RoundLedger rows={rows} me={me} withYear={withYear} />
     </div>
   );
 }
@@ -205,7 +215,7 @@ function TrackHead({ label, children }: { label: string; children?: React.ReactN
   );
 }
 
-function WeekCharts({ rows }: { rows: RoundRow[] }) {
+function WeekCharts({ rows, withYear }: { rows: RoundRow[]; withYear: boolean }) {
   const values = rows.map((r) => r.money.videre);
   const max = Math.max(...values, 0);
   const min = Math.min(...values, 0);
@@ -229,7 +239,7 @@ function WeekCharts({ rows }: { rows: RoundRow[] }) {
 
       <TrackHead label="Potten">
         Høyest <span className="font-semibold text-plum tabular-nums">{kr(max)} kr</span> etter{" "}
-        {weekLabel(rows[peakIdx].round.title, `runde ${rows[peakIdx].round.id}`).toLowerCase()}
+        {roundLabel(rows[peakIdx].round, withYear).toLowerCase()}
         <span className="mx-1.5 text-plum/30">·</span>
         {change >= 0 ? "Opp" : "Ned"} <span className="tabular-nums">{kr(Math.abs(change))} kr</span> totalt
       </TrackHead>
@@ -237,7 +247,7 @@ function WeekCharts({ rows }: { rows: RoundRow[] }) {
         {rows.map((r, i) => {
           const v = r.money.videre;
           const h = (Math.abs(v) / span) * 100;
-          const label = weekLabel(r.round.title, `Runde ${r.round.id}`);
+          const label = roundLabel(r.round, withYear);
           const always = i === peakIdx || i === lastIdx;
           const delta = v - r.money.carriedOver;
           return (
@@ -301,7 +311,7 @@ function WeekCharts({ rows }: { rows: RoundRow[] }) {
           const n = r.money.sold;
           const size = r.round.grid_size ** 2;
           const full = n >= size;
-          const label = weekLabel(r.round.title, `Runde ${r.round.id}`);
+          const label = roundLabel(r.round, withYear);
           return (
             <Link
               key={r.round.id}
@@ -347,8 +357,36 @@ function WeekCharts({ rows }: { rows: RoundRow[] }) {
           );
         })}
       </div>
-      <p className="mt-1 text-center text-xs text-plum/60">Uke</p>
+      <p className="mt-1 text-center text-xs text-plum/60">
+        {withYear ? `Uke, ${roundYear(rows[0].round)}–${roundYear(rows[lastIdx].round)}` : "Uke"}
+      </p>
     </Panel>
+  );
+}
+
+/* ---------- Årsvelger ---------- */
+
+/** One choice filters the whole page. Links, not a form, so every year has its own URL. */
+function YearPicker({ years, selected }: { years: number[]; selected: number | null }) {
+  const options = [
+    ...years.map((y) => ({ key: String(y), label: String(y), on: y === selected })),
+    { key: "alle", label: "Alle år", on: selected == null },
+  ];
+  return (
+    <nav aria-label="Velg år" className="flex flex-wrap gap-1 rounded-lg bg-parchment/60 p-1 text-sm">
+      {options.map((o) => (
+        <Link
+          key={o.key}
+          href={`/historikk?ar=${o.key}`}
+          aria-current={o.on ? "page" : undefined}
+          className={`rounded-md px-3 py-1 tabular-nums outline-offset-2 focus-visible:outline-2 focus-visible:outline-wine ${
+            o.on ? "bg-white font-semibold text-wine shadow-sm" : "text-plum/70 hover:text-plum"
+          }`}
+        >
+          {o.label}
+        </Link>
+      ))}
+    </nav>
   );
 }
 
@@ -551,7 +589,7 @@ function Leaderboards({ stats }: { stats: LotteryStats }) {
 
 /* ---------- Alle runder ---------- */
 
-function RoundLedger({ rows, me }: { rows: RoundRow[]; me: string | null }) {
+function RoundLedger({ rows, me, withYear }: { rows: RoundRow[]; me: string | null; withYear: boolean }) {
   return (
     <section>
       <div className="mb-3 flex items-baseline justify-between gap-4">
@@ -567,7 +605,7 @@ function RoundLedger({ rows, me }: { rows: RoundRow[]; me: string | null }) {
         </div>
         <ol className="divide-y divide-plum/10">
           {rows.map((r) => (
-            <RoundEntry key={r.round.id} row={r} me={me} />
+            <RoundEntry key={r.round.id} row={r} me={me} withYear={withYear} />
           ))}
         </ol>
       </div>
@@ -575,11 +613,10 @@ function RoundLedger({ rows, me }: { rows: RoundRow[]; me: string | null }) {
   );
 }
 
-function RoundEntry({ row, me }: { row: RoundRow; me: string | null }) {
+function RoundEntry({ row, me, withYear }: { row: RoundRow; me: string | null; withYear: boolean }) {
   const { round, prizes, draws, money } = row;
   const winners = draws.filter((d) => d.winner_name).sort((a, b) => a.rank - b.rank);
-  const delta = money.videre - money.carriedOver;
-  const label = weekLabel(round.title, `Runde ${round.id}`);
+  const label = roundLabel(round, withYear);
 
   return (
     <li className="grid grid-cols-[minmax(0,1fr)] gap-x-6 gap-y-3 px-4 py-4 sm:px-5 md:grid-cols-[9rem_minmax(0,1fr)_15rem]">
@@ -629,19 +666,7 @@ function RoundEntry({ row, me }: { row: RoundRow; me: string | null }) {
         <p className="text-sm text-plum/60">Ingen registrerte vinnere.</p>
       )}
 
-      <dl className="grid grid-cols-[1fr_auto] gap-y-0.5 rounded-lg bg-parchment/40 px-3 py-2 text-sm tabular-nums md:self-start">
-        <dt className="text-plum/60">Inn fra sist</dt>
-        <dd className="text-right">{kr(money.carriedOver)}</dd>
-        <dt className="text-plum/60">{money.sold} lodd solgt</dt>
-        <dd className="text-right">+{kr(money.loddSolgt)}</dd>
-        <dt className="text-plum/60">Kost på polet</dt>
-        <dd className="text-right">−{kr(money.poletCost)}</dd>
-        <dt className="mt-1 border-t border-plum/10 pt-1 font-semibold">Videreført</dt>
-        <dd className="mt-1 border-t border-plum/10 pt-1 pl-3 text-right">
-          <span className="font-semibold">{kr(money.videre)} kr</span>
-          <span className={`ml-2 text-xs ${delta < 0 ? "text-wine" : "text-sage"}`}>{signed(delta)}</span>
-        </dd>
-      </dl>
+      <Receipt money={money} className="md:self-start" />
     </li>
   );
 }

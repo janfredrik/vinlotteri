@@ -40,6 +40,9 @@ export default function DrawPanel({
   // that draw until the result card reveals it.
   const [revealing, setRevealing] = useState<number | null>(null);
   const draws = useMemo(() => state.draws.filter((d) => d.rank !== revealing), [state.draws, revealing]);
+  // HISTORY_EDIT: the draw whose winning square is being corrected by tapping the grid.
+  const canFix = locked && state.historyEdit;
+  const [fixRank, setFixRank] = useState<number | null>(null);
 
   const gridCells: GridCell[] = cells.map((c) => ({
     row: c.row,
@@ -144,6 +147,19 @@ export default function DrawPanel({
       reload();
     });
 
+  const setSquare = (rank: number, cellId: number | null) =>
+    run(async () => {
+      await roundAction(roundId, { type: "drawSquare", rank, cellId });
+      setFixRank(null);
+      reload();
+    });
+
+  const fixing = fixRank != null ? winnerOf(fixRank) : undefined;
+  const pickSquare = (g: GridCell) => {
+    const cell = cells.find((c) => c.row === g.row && c.col === g.col);
+    if (fixing && cell && (cell.status === "sold" || cell.status === "held")) setSquare(fixing.rank, cell.id);
+  };
+
   const undo = (rank: number) =>
     run(async () => {
       await roundAction(roundId, { type: "clearDraw", rank });
@@ -172,6 +188,37 @@ export default function DrawPanel({
               skipLabel={choosing.skipped ? "Avbryt" : undefined}
               error={error}
             />
+          )}
+
+          {canFix && (
+            <div className="rounded-xl border border-gold/60 bg-white p-5">
+              {fixing ? (
+                <>
+                  <h3 className="font-display text-xl font-semibold text-wine">
+                    Hvilken rute vant {fixing.winner_name}?
+                  </h3>
+                  <p className="mt-1 text-sm text-plum/80">
+                    Trykk på ruten i rutenettet. Vinnernavnet blir navnet på ruten
+                    {fixing.col && fixing.row ? `, i dag ${fixing.col}-${fixing.row}` : ""}.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" disabled={busy} onClick={() => setFixRank(null)} className={btn.secondary}>
+                      Avbryt
+                    </button>
+                    {fixing.winner_cell_id != null && (
+                      <button type="button" disabled={busy} onClick={() => setSquare(fixing.rank, null)} className={btn.quiet}>
+                        Fjern ruten
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-plum/80">
+                  Retting av historikk er slått på. Trykk «Rett rute» på en vinner for å velge hvilken rute som vant.
+                </p>
+              )}
+              <ErrorNote>{error}</ErrorNote>
+            </div>
           )}
 
           {!prizes.length ? (
@@ -271,9 +318,15 @@ export default function DrawPanel({
                             {rank === 1 && <Crown className="h-3.5 w-4 shrink-0 text-gold" />}
                             <span className="font-semibold text-plum">{d.winner_name}</span>
                             <span className="text-xs tabular-nums text-plum/70">
-                              {d.col}-{d.row} · {d.method === "digital" ? "digital" : "terning"}
+                              {d.col && d.row ? `${d.col}-${d.row}` : "ukjent rute"} ·{" "}
+                              {d.method === "digital" ? "digital" : "terning"}
                             </span>
                           </span>
+                          {canFix && fixRank !== rank && (
+                            <button type="button" disabled={busy} onClick={() => setFixRank(rank)} className={`${btn.quiet} text-xs`}>
+                              Rett rute
+                            </button>
+                          )}
                           {!locked && (
                             <ConfirmButton
                               className={`${btn.quiet} text-xs`}
@@ -331,7 +384,14 @@ export default function DrawPanel({
 
         {/* On phones the grid steps out of the timeline indent so the squares get room for names. */}
         <div className="relative -ml-11 sm:ml-0">
-          <Grid size={size} cells={gridCells} wins={wins} sweeping={sweep} highlight={sweep ?? lastRoll} />
+          <Grid
+            size={size}
+            cells={gridCells}
+            wins={wins}
+            sweeping={sweep}
+            highlight={sweep ?? (fixing?.row && fixing.col ? { row: fixing.row, col: fixing.col } : lastRoll)}
+            onCellClick={fixing ? pickSquare : undefined}
+          />
         </div>
       </div>
     </div>

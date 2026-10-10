@@ -13,5 +13,7 @@ export interface AdminRoundState {
   successor: { id: number; title: string };
   /** Buyer names from every round, most-used first. */
   knownNames: string[];
+  /** HISTORY_EDIT is on: winning squares of settled rounds can be corrected. */
+  historyEdit: boolean;
   now: string;
 }

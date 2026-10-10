@@ -18,6 +18,7 @@ import RulesButton from "./RulesButton";
 import Countdown, { formatLeft, useNow } from "@/components/Countdown";
 import { SeasonDrift, SeasonGreeting } from "./SeasonDecor";
 import { resolveSeason } from "@/lib/season";
+import Receipt from "./Receipt";
 
 interface LocalHold {
   cellId: number;
@@ -783,6 +784,14 @@ export default function RoundView({
           </div>
 
           <div className="space-y-2">
+            {round.status === "settled" && (
+              <section aria-labelledby="regnskap">
+                <h2 id="regnskap" className="mb-2 text-sm font-semibold uppercase tracking-wide text-plum/60">
+                  Regnskap
+                </h2>
+                <Receipt money={money} look="card" />
+              </section>
+            )}
             {!finished ? (
               <>
                 <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-plum/60">Betaling</h2>

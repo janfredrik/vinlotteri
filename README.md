@@ -115,6 +115,15 @@ Merknader: vinnernavn lagres slik de er skrevet i arket (initialer eller fullt n
 matcher en rute i rutenettet kobles vinneren til ruten, ellers vises bare navnet. Premienavn hentes
 fra vinnerlinja («1: AB - Rødvin» → premie «Rødvin»), ellers «N. premie».
 
+### Rette vinnerruter i ettertid
+
+Vinnere som bare har navn kan kobles til riktig rute i appen. Start med `HISTORY_EDIT=1` i `.env`
+(og `docker compose up -d`). Da viser «Tidligere runder» i `/admin` hvor mange vinnere som mangler
+rute, og under «Trekning» i en avsluttet runde kan du trykke «Rett rute» og så ruten i rutenettet.
+Vinnernavnet blir navnet på ruten. Penger og premievalg endres ikke. Alle som kommer forbi PIN-en kan
+administrere, så slå flagget av igjen når du er ferdig. Merk at `import:history --force` overskriver
+rettelsene for ukene den importerer på nytt.
+
 ## Deploy med Docker
 
 Et image bygges og publiseres til GHCR ved hver push til `main`

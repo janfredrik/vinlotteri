@@ -9,6 +9,11 @@ const SITE_PIN = (process.env.SITE_PIN || "").trim();
 /** Gate is active unless SITE_PIN is empty or explicitly "off". */
 export const GATE_ON = SITE_PIN.length > 0 && SITE_PIN.toLowerCase() !== "off";
 
+/** HISTORY_EDIT=1 lets admins correct the winning squares of settled rounds, e.g. imported
+ *  history where the sheet only had the winner's name. Off by default: everyone past the PIN
+ *  can administer, so it is switched on only while someone with access to the server tidies up. */
+export const HISTORY_EDIT = (process.env.HISTORY_EDIT || "").trim() === "1";
+
 export const ACCESS_COOKIE = "vl_access";
 export const ACCESS_MAX_AGE = 60 * 60 * 24 * 60; // 60 days
 

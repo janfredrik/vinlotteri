@@ -227,6 +227,7 @@ export default function AdminRound({ roundId }: { roundId: number }) {
       {locked && (
         <p className="rounded-lg bg-parchment/70 px-4 py-3 text-sm text-plum">
           Runden er gjort opp, så alt er låst unntatt navn på kjøperne, som du kan rette under «Salg». Må noe annet rettes, angrer du oppgjøret under «Oppgjør» dersom ny runde ikke har startet.
+          {state.historyEdit && " Retting av historikk er slått på, så vinnerrutene kan også rettes under «Trekning»."}
         </p>
       )}
 

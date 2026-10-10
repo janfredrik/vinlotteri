@@ -14,18 +14,24 @@ import AdminGuide, { useAdminGuide } from "./AdminGuide";
 
 /**
  * The organiser's front page: the round in progress first, with what needs doing next,
- * then every earlier round as a ledger.
+ * then earlier rounds as a ledger: the latest year, with older years one click away.
  */
 export default function AdminHome() {
   const router = useRouter();
   const [rounds, setRounds] = useState<RoundSummary[] | null>(null);
+  const [years, setYears] = useState<number[]>([]);
+  const [historyEdit, setHistoryEdit] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const { run, busy, error } = useAction();
   const guide = useAdminGuide();
 
   const load = useCallback(() => {
     api("/api/admin/rounds")
-      .then((d) => setRounds(d.rounds))
+      .then((d) => {
+        setRounds(d.rounds);
+        setYears(d.years);
+        setHistoryEdit(!!d.historyEdit);
+      })
       .catch((e) => setLoadError((e as Error).message));
   }, []);
   useEffect(load, [load]);
@@ -89,17 +95,7 @@ export default function AdminHome() {
         </section>
       )}
 
-      {past.length > 0 && (
-        <section aria-labelledby="tidligere" className="space-y-3">
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 id="tidligere" className="font-display text-xl font-semibold text-plum">
-              Tidligere runder
-            </h2>
-            <span className="text-sm text-plum/70 tabular-nums">{past.length} gjort opp</span>
-          </div>
-          <PastRounds rounds={past} />
-        </section>
-      )}
+      {past.length > 0 && <PastYears latest={past} years={years} historyEdit={historyEdit} />}
 
       <a
         href="https://github.com/janfredrik/vinlotteri"
@@ -279,7 +275,49 @@ function NextRoundPrompt({ latest }: { latest: RoundSummary }) {
 
 /* ---------------------------------------------------------------- ledger --- */
 
-function PastRounds({ rounds }: { rounds: RoundSummary[] }) {
+/**
+ * Settled rounds by year, newest first. The server sends only the latest year;
+ * older years are fetched one at a time when the organiser asks for them.
+ */
+function PastYears({ latest, years, historyEdit }: { latest: RoundSummary[]; years: number[]; historyEdit: boolean }) {
+  const [older, setOlder] = useState<RoundSummary[][]>([]);
+  const { run, busy, error } = useAction();
+  const loaded = [latest, ...older];
+  const next = years[loaded.length];
+
+  const loadNext = () =>
+    run(async () => {
+      const d = await api(`/api/admin/rounds?ar=${next}`);
+      setOlder((o) => [...o, d.rounds]);
+    });
+
+  return (
+    <section aria-labelledby="tidligere" className="space-y-6">
+      <h2 id="tidligere" className="font-display text-xl font-semibold text-plum">
+        Tidligere runder
+      </h2>
+      {loaded.map((rounds, i) => (
+        <div key={years[i]} className="space-y-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h3 className="font-display text-lg font-semibold text-plum">{years[i]}</h3>
+            <span className="text-sm text-plum/70 tabular-nums">{rounds.length} gjort opp</span>
+          </div>
+          <PastRounds rounds={rounds} historyEdit={historyEdit} />
+        </div>
+      ))}
+      {next != null && (
+        <div>
+          <button type="button" onClick={loadNext} disabled={busy} className={btn.secondary}>
+            {busy ? "Henter…" : `Vis ${next}`}
+          </button>
+          <ErrorNote>{error}</ErrorNote>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PastRounds({ rounds, historyEdit }: { rounds: RoundSummary[]; historyEdit: boolean }) {
   return (
     <div className="overflow-hidden rounded-xl border border-plum/10 bg-white">
       <table className="w-full text-left text-sm">
@@ -298,12 +336,17 @@ function PastRounds({ rounds }: { rounds: RoundSummary[] }) {
               <td className="px-4 py-3">
                 {/* The link covers the whole row, so any part of it opens the round. */}
                 <Link
-                  href={`/admin/runde/${r.id}`}
+                  href={`/admin/runde/${r.id}${historyEdit && r.unplaced ? "?steg=trekk" : ""}`}
                   className="whitespace-nowrap font-medium text-plum after:absolute after:inset-0 after:content-[''] hover:text-wine focus-visible:outline-none focus-visible:after:rounded-sm focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-wine"
                 >
                   {r.title || `Runde ${r.id}`}
                 </Link>
                 <span className="block text-xs text-plum/70 sm:hidden">{r.organizer || "—"}</span>
+                {historyEdit && r.unplaced > 0 && (
+                  <span className="mt-0.5 block text-xs font-medium text-wine">
+                    {r.unplaced} {r.unplaced === 1 ? "vinner" : "vinnere"} uten rute
+                  </span>
+                )}
               </td>
               <td className="hidden px-4 py-3 text-plum/80 sm:table-cell">{r.organizer || "—"}</td>
               <td className="hidden px-4 py-3 text-plum/80 md:table-cell">
