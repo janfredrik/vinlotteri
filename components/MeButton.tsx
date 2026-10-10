@@ -160,11 +160,14 @@ export function MeButton() {
     if (!open || !names) return;
     const d = dialogRef.current;
     const finePointer = window.matchMedia("(pointer: fine)").matches;
+    const active = d?.querySelector<HTMLElement>("[data-active]");
     const target =
       (finePointer && d?.querySelector<HTMLElement>("[data-search]")) ||
-      d?.querySelector<HTMLElement>("[data-active]") ||
+      active ||
       d?.querySelector<HTMLElement>("[data-close]");
     target?.focus();
+    // With focus in the search field, still show where you are in the list.
+    if (active && target !== active) active.scrollIntoView({ block: "center" });
   }, [open, names]);
 
   const shown = useMemo(() => {
@@ -253,9 +256,6 @@ export function MeButton() {
                 </svg>
               </button>
             </div>
-            <p className="mt-1 text-sm text-plum/70">
-              Rutene dine blir merket på alle enheter du velger deg på.
-            </p>
 
             {names && names.length > SEARCH_FROM && (
               <label className="mt-4 block">
@@ -296,39 +296,32 @@ export function MeButton() {
               ) : shown.length === 0 ? (
                 <p className="py-4 text-sm text-plum/70">Ingen navn passer «{q.trim()}».</p>
               ) : (
-                <ul className="divide-y divide-plum/10">
+                // Names are mostly short initials, so they sit as tiles in a grid (like the
+                // squares themselves) instead of full-width rows.
+                <ul className="grid grid-cols-2 gap-2 py-1 sm:grid-cols-3">
                   {shown.map((n) => {
                     const active = normName(n) === meNorm;
                     return (
-                      <li key={n}>
+                      <li key={n} className="min-w-0">
                         <button
                           type="button"
                           data-active={active || undefined}
                           disabled={busy}
                           aria-current={active || undefined}
                           onClick={() => (active ? setOpen(false) : pick(n))}
-                          className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-parchment/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-wine disabled:opacity-60"
+                          title={n}
+                          className={`flex h-12 w-full items-center gap-2.5 rounded-lg border px-2.5 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wine disabled:opacity-60 ${
+                            active
+                              ? "border-gold bg-gold-soft/40"
+                              : "border-plum/10 bg-white hover:border-plum/25 hover:bg-parchment/50"
+                          }`}
                         >
-                          <MeSquare name={n} size="sm" ring={active} />
+                          <MeSquare name={n} size="sm" />
                           <span
                             className={`min-w-0 flex-1 truncate ${active ? "font-semibold text-wine" : "font-medium"}`}
                           >
                             {n}
                           </span>
-                          {active && (
-                            <svg
-                              viewBox="0 0 20 20"
-                              aria-hidden="true"
-                              className="h-5 w-5 shrink-0 text-wine"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="m4.5 10.5 3.5 3.5 7.5-8" />
-                            </svg>
-                          )}
                         </button>
                       </li>
                     );
