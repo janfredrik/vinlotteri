@@ -5,6 +5,7 @@ import { makeSeed, seededRolls } from "./draw";
 import { vinmonopoletImage } from "./vinmonopolet";
 import { parseWishes, prizeOfDraw, settleCheck, skippedWinners, unclaimedPrizes } from "./phases";
 import { atTime, isoWeek, nextWeekday } from "./datetime";
+import { buildNameUses, type NameUse } from "./names";
 import type {
   Cell,
   Draw,
@@ -428,6 +429,59 @@ export function knownBuyerNames(): string[] {
     else best.set(r.norm, { name: r.name, n: r.n });
   }
   return [...best.values()].sort((a, b) => b.n - a.n).map((b) => b.name);
+}
+
+/** Admin: every name ever used, for tidying up nicknames (/admin/navn). */
+export function listNameUses(): NameUse[] {
+  return buildNameUses(
+    listRounds(),
+    plainAll<Cell>(db.prepare("SELECT * FROM cells WHERE status IN ('held','sold')").all()),
+    plainAll<Draw>(db.prepare("SELECT * FROM draws WHERE winner_name IS NOT NULL").all()),
+  );
+}
+
+/** Admin: make several names one person. Every square, win and organiser field under any of
+ *  `norms` gets `name`, in all rounds. Money is untouched. Returns the rounds it changed. */
+export function mergeNames(norms: string[], name: string): number[] {
+  const trimmed = name.trim().replace(/\s+/g, " ");
+  const targets = new Set(norms.map(normName));
+  const touched = new Set<number>();
+  const cells = db.prepare(
+    "SELECT id, round_id, buyer_name_norm FROM cells WHERE buyer_name_norm IS NOT NULL AND status IN ('held','sold')",
+  ).all() as { id: number; round_id: number; buyer_name_norm: string }[];
+  const draws = db.prepare("SELECT id, round_id, winner_name FROM draws WHERE winner_name IS NOT NULL").all() as {
+    id: number;
+    round_id: number;
+    winner_name: string;
+  }[];
+  const rounds = db.prepare("SELECT id, organizer_name FROM rounds").all() as { id: number; organizer_name: string }[];
+
+  const renameCell = db.prepare("UPDATE cells SET buyer_name = ?, buyer_name_norm = ? WHERE id = ?");
+  const renameDraw = db.prepare("UPDATE draws SET winner_name = ? WHERE id = ?");
+  const renameOrganizer = db.prepare("UPDATE rounds SET organizer_name = ? WHERE id = ?");
+  db.exec("BEGIN");
+  try {
+    for (const c of cells)
+      if (targets.has(c.buyer_name_norm)) {
+        renameCell.run(trimmed, normName(trimmed), c.id);
+        touched.add(c.round_id);
+      }
+    for (const d of draws)
+      if (targets.has(normName(d.winner_name))) {
+        renameDraw.run(trimmed, d.id);
+        touched.add(d.round_id);
+      }
+    for (const r of rounds)
+      if (r.organizer_name && targets.has(normName(r.organizer_name))) {
+        renameOrganizer.run(trimmed, r.id);
+        touched.add(r.id);
+      }
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+  return [...touched];
 }
 
 export function adminClearCell(roundId: number, cellId: number): void {
