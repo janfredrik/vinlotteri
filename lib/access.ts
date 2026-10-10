@@ -2,6 +2,8 @@
 // /admin — whoever is trusted with the PIN can also run rounds (they arrange the
 // next one if they win). No PIN set = open (fine for local dev).
 
+import { PinThrottle, clientIp } from "./throttle";
+
 const SITE_PIN = (process.env.SITE_PIN || "").trim();
 
 /** Gate is active unless SITE_PIN is empty or explicitly "off". */
@@ -41,6 +43,31 @@ export function accessToken(): Promise<string> {
 
 export function pinMatches(pin: string): boolean {
   return GATE_ON && typeof pin === "string" && pin === SITE_PIN;
+}
+
+// One brake shared by the middleware (?k=) and /api/access. They run in the same
+// Node process but may be bundled separately, so the instance lives on globalThis.
+const g = globalThis as typeof globalThis & { __vlPinThrottle?: PinThrottle };
+const throttle = (g.__vlPinThrottle ??= new PinThrottle());
+
+export type PinResult = { ok: true } | { ok: false; retryAfter: number };
+
+/** Checks a PIN attempt through the brute-force brake. `retryAfter` (seconds) is 0 for
+ *  a plain wrong PIN and above 0 when the caller is locked out (the PIN is not even checked). */
+export function tryPin(pin: string, headers: Headers): PinResult {
+  const ip = clientIp(headers);
+  const wait = throttle.wait(ip);
+  if (wait > 0) {
+    console.warn(`[access] ${ip} er sperret i ${wait} s`);
+    return { ok: false, retryAfter: wait };
+  }
+  if (pinMatches(pin)) {
+    throttle.hit(ip);
+    return { ok: true };
+  }
+  const misses = throttle.miss(ip);
+  console.warn(`[access] Feil PIN fra ${ip} (${misses} på rad)`);
+  return { ok: false, retryAfter: throttle.wait(ip) };
 }
 
 export async function hasAccess(cookieValue: string | undefined | null): Promise<boolean> {

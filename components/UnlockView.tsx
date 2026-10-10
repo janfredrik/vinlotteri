@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-type Phase = "idle" | "busy" | "wrong" | "ok";
+type Phase = "idle" | "busy" | "wrong" | "wait" | "ok";
 
 // The bowl's inside runs from the rim (y=16) down to the stem (y=100).
 const RIM = 16;
@@ -12,8 +12,16 @@ const BOTTOM = 100;
 /** How full the glass is: each digit pours a bit more, easing off so a long PIN never spills. */
 function fillFor(len: number, phase: Phase) {
   if (phase === "ok") return 0.9;
-  if (phase === "wrong") return 0;
+  if (phase === "wrong" || phase === "wait") return 0;
   return 0.78 * (1 - Math.pow(0.68, len));
+}
+
+/** "om 3 minutter" / "om 5 timer" — rounded up so the wait never looks shorter than it is. */
+function waitText(seconds: number) {
+  const min = Math.ceil(seconds / 60);
+  if (min <= 1) return "om et minutt";
+  if (min < 90) return `om ${min} minutter`;
+  return `om ${Math.ceil(min / 60)} timer`;
 }
 
 /** A drawn wine glass whose level follows the PIN. */
@@ -62,14 +70,17 @@ function UnlockForm() {
   // Reject protocol-relative ("//evil.com") and absolute URLs — only same-site paths.
   const raw = params.get("next") || "/";
   const next = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
+  // A locked-out magic link (?k=) lands here with ?vent=<seconds>.
+  const vent = Number(params.get("vent")) || 0;
   const [pin, setPin] = useState("");
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [phase, setPhase] = useState<Phase>(vent > 0 ? "wait" : "idle");
+  const [waitSec, setWaitSec] = useState(vent);
   const [tries, setTries] = useState(0);
   const input = useRef<HTMLInputElement>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!pin || phase === "busy" || phase === "ok") return;
+    if (!pin || phase === "busy" || phase === "ok" || phase === "wait") return;
     setPhase("busy");
     const r = await fetch("/api/access", {
       method: "POST",
@@ -83,6 +94,12 @@ function UnlockForm() {
       // router.replace()+refresh() here races the cookie write.
       const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       setTimeout(() => window.location.assign(next), calm ? 0 : 750);
+    } else if (r?.status === 429) {
+      const body = await r.json().catch(() => ({}));
+      setWaitSec(Number(body.retryAfter) || Number(r.headers.get("Retry-After")) || 60);
+      setPhase("wait");
+      setTries((t) => t + 1);
+      setPin("");
     } else {
       setPhase("wrong");
       setTries((t) => t + 1);
@@ -94,6 +111,13 @@ function UnlockForm() {
   useEffect(() => {
     if (phase === "wrong") input.current?.focus();
   }, [phase, tries]);
+
+  // Unlock the form again once the wait is over.
+  useEffect(() => {
+    if (phase !== "wait") return;
+    const t = setTimeout(() => setPhase("idle"), waitSec * 1000);
+    return () => clearTimeout(t);
+  }, [phase, waitSec, tries]);
 
   const busy = phase === "busy" || phase === "ok";
 
@@ -146,11 +170,14 @@ function UnlockForm() {
 
       <p id="pin-status" role="status" className="mt-3 min-h-5 text-sm">
         {phase === "wrong" && <span className="text-wine">Feil PIN. Glasset er tømt, prøv igjen.</span>}
+        {phase === "wait" && (
+          <span className="text-wine">For mange feil forsøk. Prøv igjen {waitText(waitSec)}.</span>
+        )}
         {phase === "ok" && <span className="font-display italic text-wine">Lykke til!</span>}
       </p>
 
       <button
-        disabled={busy || !pin}
+        disabled={busy || !pin || phase === "wait"}
         className={`mt-4 w-full rounded-lg bg-wine py-2.5 font-semibold text-cream transition-colors hover:bg-wine-dark disabled:cursor-not-allowed ${phase === "ok" ? "" : "disabled:bg-wine/45"}`}
       >
         {phase === "busy" ? "Sjekker…" : phase === "ok" ? "Velkommen" : "Kom inn"}

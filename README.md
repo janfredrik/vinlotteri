@@ -52,6 +52,9 @@ Bildene viser anonyme demodata.
   heatmap over hvilke ruter som vinner mest.
 - **Én felles tilgangs-PIN** (`SITE_PIN`) låser hele siden. Alle som kommer inn kan også
   administrere – den som vinner arrangerer neste runde.
+  Feil PIN bremses: 3. feil fra samme IP gir 5 min sperre, så dobbelt for hver nye feil (maks
+  ett døgn), og over 100 feil totalt siste døgn stenger innlogging for alle nye en periode. Gjelder
+  også `?k=`. IP leses fra `CF-Connecting-IP`/`X-Real-IP`. Bruk gjerne en PIN på 6+ sifre.
 - **Teams-varsler** (valgfritt, `TEAMS_WEBHOOK_URL`) – se under.
 
 ## Kjøre lokalt

@@ -5,7 +5,7 @@ import {
   GATE_ON,
   accessToken,
   hasAccess,
-  pinMatches,
+  tryPin,
 } from "@/lib/access";
 
 export const config = {
@@ -28,18 +28,25 @@ export async function middleware(req: NextRequest) {
 
   const url = req.nextUrl;
 
-  // Magic link: /whatever?k=<pin> sets the cookie and drops the param.
+  const access = await hasAccess(req.cookies.get(ACCESS_COOKIE)?.value);
+
+  // Magic link: /whatever?k=<pin> sets the cookie and drops the param. Goes through
+  // the same brute-force brake as /apne; a wrong or locked-out k lands on /apne.
   const k = url.searchParams.get("k");
+  let retryAfter = 0;
   if (k !== null) {
-    if (pinMatches(k)) {
-      url.searchParams.delete("k");
+    url.searchParams.delete("k");
+    if (access) return NextResponse.redirect(url);
+    const result = tryPin(k, req.headers);
+    if (result.ok) {
       const res = NextResponse.redirect(url);
       res.cookies.set(ACCESS_COOKIE, await accessToken(), COOKIE_OPTS);
       return res;
     }
+    retryAfter = result.retryAfter;
   }
 
-  if (await hasAccess(req.cookies.get(ACCESS_COOKIE)?.value)) return NextResponse.next();
+  if (access) return NextResponse.next();
 
   if (url.pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Krever tilgangs-PIN." }, { status: 401 });
@@ -47,5 +54,6 @@ export async function middleware(req: NextRequest) {
 
   const unlock = new URL("/apne", req.url);
   unlock.searchParams.set("next", url.pathname + url.search);
+  if (retryAfter > 0) unlock.searchParams.set("vent", String(retryAfter));
   return NextResponse.redirect(unlock);
 }
