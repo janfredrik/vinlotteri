@@ -9,7 +9,7 @@ import { weekdayTime } from "@/lib/datetime";
 import { PHASES, STATUS_LABEL, currentPhase, phaseIndex, type Phase } from "@/lib/phases";
 import type { RoundSummary } from "@/lib/repo";
 import { Crown } from "@/components/Grid";
-import { ErrorNote, IconAlert, IconArrowRight, IconCheck, IconExternal, IconHelp, btn, useAction } from "./ui";
+import { ErrorNote, IconAlert, IconArrowRight, IconCheck, IconExternal, IconGitHub, IconHelp, btn, useAction } from "./ui";
 import AdminGuide, { useAdminGuide } from "./AdminGuide";
 
 /**
@@ -101,6 +101,14 @@ export default function AdminHome() {
         </section>
       )}
 
+      <a
+        href="https://github.com/janfredrik/vinlotteri"
+        aria-label="Kildekoden på GitHub"
+        title="Kildekoden på GitHub"
+        className="mx-auto flex h-11 w-11 items-center justify-center rounded-full text-plum/50 transition-colors hover:text-wine"
+      >
+        <IconGitHub className="h-5 w-5" />
+      </a>
     </div>
   );
 }
