@@ -26,3 +26,6 @@ next-env.d.ts
 
 # local work plans
 /docs/plan-*.md
+
+# python bytecode
+__pycache__/

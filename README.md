@@ -94,12 +94,15 @@ navn, arrangør/Vippsnummer, pengestats og vinnere per uke. Pengestatsen kontrol
 (`inn + lodd solgt − kost på polet = videreført`).
 
 ```bash
-npm run import:history                # importer, hopp over uker som alt finnes
+npm run import:history                # importer alle år, hopp over uker som alt finnes
+npm run import:history -- scripts/loddark-2025.json   # bare ett år
 npm run import:history -- --force      # erstatt uker som er importert før
 npm run import:history -- --all        # ta med uker uten registrerte vinnere (pågående runde)
 ```
 
-Importen leser `scripts/loddark-<år>.json` (ingen Python trengs). JSON-en inneholder navn og Vippsnumre, så den ligger i `.gitignore` og skal ikke committes.
+Importen leser alle `scripts/loddark-<år>.json` i datorekkefølge (ingen Python trengs). Før den skriver
+noe, advarer den om uker der «inn» ikke er lik forrige ukes «videreført», eller der antall navn i
+rutenettet ikke stemmer med «lodd solgt» i arket. JSON-en inneholder navn og Vippsnumre, så den ligger i `.gitignore` og skal ikke committes.
 Uker uten vinnere (typisk inneværende uke) hoppes over så de kan kjøres live i appen i stedet.
 
 Regenerere JSON-en fra et nytt regneark:

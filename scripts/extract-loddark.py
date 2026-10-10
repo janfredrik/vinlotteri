@@ -7,6 +7,7 @@ Needs openpyxl:  python3 -m venv .venv && .venv/bin/pip install openpyxl
 Run:             .venv/bin/python scripts/extract-loddark.py "Vinlotteri loddark - 2026.xlsx"
 """
 import json
+import os
 import re
 import sys
 from datetime import date
@@ -26,12 +27,16 @@ MONEY_LABELS = {
 
 
 def find_grid(ws):
-    for r in range(1, 6):
-        if [ws.cell(row=r, column=c).value for c in range(2, 8)] == [1, 2, 3, 4, 5, 6]:
+    # The 1..6 header sits in B1 in most sheets, but some weeks moved it (D7, D14, ...).
+    for row in ws.iter_rows():
+        for cell in row:
+            r, c = cell.row, cell.column
+            if [ws.cell(row=r, column=c + i).value for i in range(6)] != [1, 2, 3, 4, 5, 6]:
+                continue
             cells = []
             for gr in range(1, 7):
                 for gc in range(1, 7):
-                    v = ws.cell(row=r + gr, column=1 + gc).value
+                    v = ws.cell(row=r + gr, column=c - 1 + gc).value
                     if v is not None and str(v).strip():
                         cells.append({"row": gr, "col": gc, "name": str(v).strip()})
             return cells
@@ -128,7 +133,7 @@ for name in wb.sheetnames:
 
 rounds.sort(key=lambda r: r["week"])
 with open(OUT, "w", encoding="utf-8") as f:
-    json.dump({"source": SRC, "year": YEAR, "rounds": rounds}, f, ensure_ascii=False, indent=2)
+    json.dump({"source": os.path.basename(SRC), "year": YEAR, "rounds": rounds}, f, ensure_ascii=False, indent=2)
 
 for r in rounds:
     sold = len(r["cells"])
