@@ -270,6 +270,8 @@ export interface HoldResult {
   cellId?: number;
 }
 
+const BUYER_NAME_MAX = 40;
+
 export function holdCell(
   roundId: number,
   row: number,
@@ -280,7 +282,12 @@ export function holdCell(
   const round = getRound(roundId);
   if (!round) return { ok: false, error: "Runden finnes ikke." };
 
-  const trimmed = name.trim();
+  // The buy form caps names at a few characters; the server only guards against junk: control
+  // characters, runs of spaces and very long names (sent past the form) that would break layouts.
+  const trimmed = [...name.replace(/[\p{Cc}\u200B\u202A-\u202E\u2066-\u2069\uFEFF]/gu, "").trim().replace(/\s+/g, " ")]
+    .slice(0, BUYER_NAME_MAX)
+    .join("")
+    .trim();
   if (trimmed.length < 2) return { ok: false, error: "Skriv inn navn eller initialer." };
   const nameNorm = normName(trimmed);
 
@@ -288,7 +295,8 @@ export function holdCell(
     .prepare("SELECT * FROM cells WHERE round_id = ? AND row = ? AND col = ?")
     .get(roundId, row, col) as Cell | undefined;
   if (!cell) return { ok: false, error: "Ruten finnes ikke." };
-  if (cell.status !== "available") return { ok: false, error: "Ruten er allerede tatt." };
+  if (cell.status !== "available")
+    return { ok: false, error: `Noen rakk å ta rute ${col}-${row} før deg. Velg en annen ledig rute.` };
 
   if (restrictionActive && round.max_per_person > 0) {
     const held = countTicketsByPerson(roundId, nameNorm);

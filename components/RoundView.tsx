@@ -47,6 +47,16 @@ function writeLocalHolds(roundId: number, holds: LocalHold[]) {
 
 type Step = "form" | "reserved" | "pay";
 
+/** A failed call to the cells API, with the HTTP status (0 = no contact) so callers can tell why. */
+class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
 // Names you bought for without switching profile: don't offer the switch again for them.
 const SKIP_KEY = "vl_me_skip";
 
@@ -143,11 +153,27 @@ export default function RoundView({
     } else if (!dialogOpen && d.open) d.close();
   }, [dialogOpen]);
 
+  useEffect(() => () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+  }, []);
+
   const flash = useCallback((msg: string, tone: "ok" | "info" = "ok") => {
     setToast({ msg, tone });
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 4000);
+    // Long messages stay up long enough to be read.
+    toastTimer.current = setTimeout(() => setToast(null), Math.max(4000, msg.length * 70));
   }, []);
+
+  // Every reservation gone (paid elsewhere, or freed by the organiser) while the dialog lists
+  // them: close it rather than show "0 lodd", and keep any message as a toast.
+  useEffect(() => {
+    if (!dialogOpen || step === "form" || holds.length || busy) return;
+    setDialogOpen(false);
+    if (error) {
+      flash(error, "info");
+      setError(null);
+    }
+  }, [dialogOpen, step, holds.length, busy, error, flash]);
 
   const wins = useMemo(() => {
     const m = new Map<string, number>();
@@ -174,17 +200,33 @@ export default function RoundView({
 
   const post = useCallback(
     async (body: Record<string, unknown>) => {
-      const r = await fetch(`/api/rounds/${roundId}/cells`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      let r: Response;
+      try {
+        r = await fetch(`/api/rounds/${roundId}/cells`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      } catch {
+        throw new ApiError("Fikk ikke kontakt med serveren. Sjekk nettet og prøv igjen.", 0);
+      }
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data.error || "Noe gikk galt.");
+      if (!r.ok) {
+        const msg =
+          r.status === 401
+            ? "Tilgangen har gått ut. Last siden på nytt og skriv inn PIN-en."
+            : data.error || (r.status >= 500 ? "Serveren fikk en feil. Prøv igjen om litt." : "Noe gikk galt.");
+        throw new ApiError(msg, r.status);
+      }
       return data;
     },
     [roundId],
   );
+
+  // The square in the open form was taken (or sales closed) while you were typing.
+  const pickedCell = picked ? cells.find((c) => c.row === picked.row && c.col === picked.col) : undefined;
+  const pickedGone =
+    !busy && step === "form" && !!picked && (!salesOpen || (!!pickedCell && pickedCell.status !== "available"));
 
   const maxPer = round.max_per_person;
   const hasName = name.trim().length >= 2;
@@ -241,7 +283,8 @@ export default function RoundView({
   }
 
   async function openBuy(cell: GridCell) {
-    if (!salesOpen || cell.status !== "available") return;
+    // One reservation at a time: a quick second tap shouldn't start a parallel hold.
+    if (!salesOpen || cell.status !== "available" || busy) return;
     setError(null);
     // Second and later squares: name is known -> reserve straight away.
     if (holds.length > 0 && hasName) {
@@ -252,7 +295,8 @@ export default function RoundView({
         setDialogOpen(true);
         refresh();
       } catch (e) {
-        flash((e as Error).message);
+        flash((e as Error).message, "info");
+        refresh();
       } finally {
         setBusy(false);
       }
@@ -266,7 +310,7 @@ export default function RoundView({
   }
 
   async function submitForm() {
-    if (!picked) return;
+    if (!picked || busy || !hasName || pickedGone) return;
     setBusy(true);
     setError(null);
     try {
@@ -276,6 +320,7 @@ export default function RoundView({
       refresh();
     } catch (e) {
       setError((e as Error).message);
+      refresh();
     } finally {
       setBusy(false);
     }
@@ -292,23 +337,42 @@ export default function RoundView({
     if (!holds.length) return;
     setBusy(true);
     setError(null);
-    try {
-      for (const h of holds) {
+    // Each square on its own: one the organiser freed mustn't block paying for the rest. A refused
+    // square stays in your list; reconciliation lets go of it once the server shows it isn't yours.
+    const done: number[] = [];
+    const refused: { hold: LocalHold; message: string }[] = [];
+    let failure: string | null = null;
+    for (const h of holds) {
+      try {
         await post({ action: "confirm", cellId: h.cellId });
+        done.push(h.cellId);
+      } catch (e) {
+        const status = e instanceof ApiError ? e.status : 0;
+        const c = cells.find((x) => x.row === h.row && x.col === h.col);
+        if (status === 409 && c?.status === "sold") done.push(h.cellId); // registered on another device
+        else if (status === 409) refused.push({ hold: h, message: (e as Error).message });
+        else {
+          // No contact, PIN expired or a server error: the rest would fail the same way.
+          failure = (e as Error).message;
+          break;
+        }
       }
-      setHolds([]);
-      writeLocalHolds(roundId, []);
+    }
+    const left = holds.filter((h) => !done.includes(h.cellId));
+    setHolds(left);
+    writeLocalHolds(roundId, left);
+    refresh();
+    setBusy(false);
+    if (!failure && !refused.length) {
       setDialogOpen(false);
-      flash(
-        holds.length > 1
-          ? `${holds.length} lodd registrert! Lykke til 🍀`
-          : "Registrert! Lykke til 🍀",
-      );
-      refresh();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
+      flash(done.length > 1 ? `${done.length} lodd registrert! Lykke til 🍀` : "Registrert! Lykke til 🍀");
+      return;
+    }
+    const prefix = done.length ? `${done.length} av ${holds.length} lodd er registrert. ` : "";
+    if (failure) setError(prefix + failure);
+    else {
+      const which = refused.map((r) => `${r.hold.col}-${r.hold.row}`).join(", ");
+      setError(`${prefix}${refused.length > 1 ? "Rutene" : "Rute"} ${which} ble ikke registrert: ${refused[0].message}`);
     }
   }
 
@@ -323,8 +387,8 @@ export default function RoundView({
         return next;
       });
       refresh();
-    } catch {
-      /* ignore */
+    } catch (e) {
+      flash((e as Error).message, "info");
     } finally {
       setBusy(false);
     }
@@ -338,14 +402,17 @@ export default function RoundView({
   const anyWinner = draws.some((d) => d.winnerName);
   const finished = round.status === "drawn" || round.status === "settled";
   const remainingPrizes = prizes.filter((p) => !draws.some((d) => d.prizeId === p.id));
-  // Your own wins this round: the square is yours (this device or your profile) or the name is.
+  // Your own wins this round. With a profile, only wins in your name: squares bought on this
+  // device for someone else (or as another profile) are theirs to celebrate. Without one, the
+  // squares bought on this device.
   const myWins = draws.filter(
     (d) =>
       d.winnerName &&
       d.row &&
       d.col &&
-      ((!!me && normName(d.winnerName) === normName(me)) ||
-        cells.some((c) => c.mine && c.row === d.row && c.col === d.col)),
+      (me
+        ? normName(d.winnerName) === normName(me)
+        : cells.some((c) => c.mine && c.row === d.row && c.col === d.col)),
   );
   const myWinKey = myWins.map((d) => `${d.rank}:${d.col}-${d.row}`).join(",");
   const bestWin = myWins.length ? myWins.reduce((a, b) => (b.rank < a.rank ? b : a)) : null;
@@ -557,12 +624,13 @@ export default function RoundView({
           {holds.length > 0 && (
             <section className="rounded-xl border border-gold bg-gold-soft/30 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
+                <div className="min-w-0">
                   <h2 className="font-display text-lg font-semibold text-plum">
                     {holds.length} rute{holds.length > 1 ? "r" : ""} reservert for deg
                   </h2>
-                  <p className="text-sm text-plum/60">
-                    {holds.map((h) => `${h.col}-${h.row}`).join(", ")} · {holds[0].name}
+                  <p className="text-sm text-plum/60 [overflow-wrap:anywhere]">
+                    {holds.map((h) => `${h.col}-${h.row}`).join(", ")} ·{" "}
+                    {[...new Map(holds.map((h) => [normName(h.name), h.name])).values()].join(", ")}
                   </p>
                 </div>
                 <button
@@ -649,7 +717,7 @@ export default function RoundView({
                       )}
                       <div className="min-w-0">
                         {d.winnerName ? (
-                          <p className="leading-tight">
+                          <p className="leading-tight [overflow-wrap:anywhere]">
                             <span className="font-semibold text-plum">{d.winnerName}</span>{" "}
                             {isMe && <YouChip />}{" "}
                             <span className="text-xs lining-nums tabular-nums text-plum/60">
@@ -701,7 +769,7 @@ export default function RoundView({
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-wine">
                         {p.category || "Premie"}
                       </span>
-                      <p className="text-sm font-medium leading-tight text-plum">{prizeName}</p>
+                      <p className="text-sm font-medium leading-tight text-plum [overflow-wrap:anywhere]">{prizeName}</p>
                       <p className="text-xs text-plum/60">{prizeMeta(p)}</p>
                     </div>
                     <PoletLink varenummer={p.varenummer} name={prizeName} />
@@ -741,7 +809,7 @@ export default function RoundView({
               </p>
             ) : null}
             {round.notes && (
-              <p className="whitespace-pre-wrap rounded-lg bg-gold-soft/30 px-3 py-2 text-sm text-plum/70">
+              <p className="whitespace-pre-wrap rounded-lg bg-gold-soft/30 px-3 py-2 text-sm text-plum/70 [overflow-wrap:anywhere]">
                 {round.notes}
               </p>
             )}
@@ -771,7 +839,13 @@ export default function RoundView({
                   </h3>
                   <CloseButton onClick={() => setDialogOpen(false)} />
                 </div>
-                <div className="mt-4 space-y-3">
+                <form
+                  className="mt-4 space-y-3"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    submitForm();
+                  }}
+                >
                   <label className="block text-sm">
                     <span className="flex items-baseline justify-between text-plum/70">
                       <span>Navn eller initialer</span>
@@ -784,6 +858,10 @@ export default function RoundView({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       maxLength={NAME_DISPLAY_MAX}
+                      autoComplete="off"
+                      enterKeyHint="go"
+                      aria-invalid={!!error || undefined}
+                      aria-describedby={error ? "kjop-feil" : undefined}
                       className="mt-1 w-full rounded-lg border border-plum/20 bg-white px-3 py-2 text-base"
                       placeholder="F.eks. Ola N"
                     />
@@ -791,22 +869,48 @@ export default function RoundView({
                       Kort navn eller initialer.
                     </span>
                   </label>
-                  {error && <p className="text-sm text-wine">{error}</p>}
-                  <button
-                    onClick={submitForm}
-                    disabled={busy || !hasName}
-                    className="w-full rounded-lg bg-wine py-2.5 font-semibold text-cream disabled:opacity-50"
-                  >
-                    {busy ? "Reserverer…" : "Reserver ruten"}
-                  </button>
-                  <p className="text-center text-xs text-plum/60">Ruten er reservert for deg til du betaler.</p>
-                </div>
+                  {pickedGone ? (
+                    <>
+                      <p role="alert" className="text-sm font-medium text-wine">
+                        {salesOpen
+                          ? "Noen rakk å ta ruten før deg. Velg en annen ledig rute."
+                          : "Loddsalget er stengt, så ruten kan ikke reserveres lenger."}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setDialogOpen(false)}
+                        className="w-full rounded-lg bg-wine py-2.5 font-semibold text-cream"
+                      >
+                        {salesOpen ? "Velg en annen rute" : "Lukk"}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {error && (
+                        <p id="kjop-feil" role="alert" className="text-sm text-wine">
+                          {error}
+                        </p>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={busy || !hasName}
+                        className="w-full rounded-lg bg-wine py-2.5 font-semibold text-cream disabled:opacity-50"
+                      >
+                        {busy ? "Reserverer…" : "Reserver ruten"}
+                      </button>
+                      <p className="text-center text-xs text-plum/60">Ruten er reservert for deg til du betaler.</p>
+                    </>
+                  )}
+                </form>
               </>
             )}
 
             {step === "reserved" && (
               <>
-                <h3 id="kjop-tittel" className="font-display text-xl font-semibold text-wine">Rute reservert ✓</h3>
+                <div className="flex items-center justify-between">
+                  <h3 id="kjop-tittel" className="font-display text-xl font-semibold text-wine">Rute reservert ✓</h3>
+                  <CloseButton onClick={() => setDialogOpen(false)} />
+                </div>
                 <p className="mt-1 text-sm text-plum/70">
                   Dine ruter: <strong>{holds.map((h) => `${h.col}-${h.row}`).join(", ")}</strong>
                 </p>
@@ -871,7 +975,11 @@ export default function RoundView({
                     />
                   </div>
                 )}
-                {error && <p className="mt-2 text-sm text-wine">{error}</p>}
+                {error && (
+                  <p role="alert" className="mt-2 text-sm text-wine">
+                    {error}
+                  </p>
+                )}
                 <button
                   onClick={confirmAll}
                   disabled={busy || !holds.length}
@@ -896,16 +1004,19 @@ export default function RoundView({
         )}
       </dialog>
 
-      {toast && (
-        <div
-          role="status"
-          className={`fixed bottom-4 left-1/2 z-50 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 animate-pop rounded-2xl px-5 py-2 text-center text-sm font-medium shadow-lg ${
-            toast.tone === "info" ? "bg-plum text-cream" : "bg-sage text-white"
-          }`}
-        >
-          {toast.msg}
-        </div>
-      )}
+      {/* The live region stays mounted: one that appears together with its text is often not read out. */}
+      <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
+        {toast && (
+          <div
+            key={toast.msg}
+            className={`w-max max-w-full animate-pop rounded-2xl px-5 py-2 text-center text-sm font-medium shadow-lg ${
+              toast.tone === "info" ? "bg-plum text-cream" : "bg-sage text-white"
+            }`}
+          >
+            {toast.msg}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

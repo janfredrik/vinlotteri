@@ -8,6 +8,35 @@ import { normName } from "@/lib/format";
 import { MeSquare } from "./MeSquare";
 
 const SEARCH_FROM = 10;
+const MIGRATED_KEY = "vl_me_migrated";
+
+/**
+ * The part of the screen the on-screen keyboard leaves free, or null while it's closed.
+ * A bottom sheet stays anchored behind the keyboard on phones (iOS doesn't resize the layout
+ * for it), so while typing the sheet is placed in this area instead.
+ */
+function useKeyboardArea(active: boolean) {
+  const [area, setArea] = useState<{ top: number; height: number } | null>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!active || !vv) {
+      setArea(null);
+      return;
+    }
+    const update = () => {
+      const covered = window.innerHeight - vv.height;
+      setArea(covered > 120 ? { top: vv.offsetTop, height: vv.height } : null);
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, [active]);
+  return area;
+}
 
 /** Top-right profile: a mini grid square with your initials. Tap to pick who you are. */
 export function MeButton() {
@@ -20,9 +49,13 @@ export function MeButton() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [fill, setFill] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const prev = useRef<string | null | undefined>(undefined);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const migrating = useRef(false);
 
   // Fill the square in once when a profile appears where there was none (not on page load).
   useEffect(() => {
@@ -34,6 +67,60 @@ export function MeButton() {
     }
     prev.current = me;
   }, [me]);
+
+  // One-time move for devices from before profiles: the name last bought with (vl_name) becomes
+  // the profile, if someone has bought under it. Once per device, so «Glem meg» stays forgotten.
+  useEffect(() => {
+    if (me === undefined || migrating.current) return;
+    const done = () => {
+      try {
+        localStorage.setItem(MIGRATED_KEY, "1");
+      } catch {
+        /* ignore */
+      }
+    };
+    try {
+      if (localStorage.getItem(MIGRATED_KEY)) return;
+    } catch {
+      return;
+    }
+    if (me) return done();
+    let saved = "";
+    try {
+      saved = localStorage.getItem("vl_name")?.trim() ?? "";
+    } catch {
+      /* ignore */
+    }
+    if (saved.length < 2) return done();
+    // Marked done only once it's settled, so a page load without network tries again next time.
+    migrating.current = true;
+    fetch("/api/me", { cache: "no-store" })
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then(async (data) => {
+        const list: unknown[] = Array.isArray(data?.names) ? data.names : [];
+        const match = list.find((n): n is string => typeof n === "string" && normName(n) === normName(saved));
+        if (!match) return done();
+        await chooseMe(match);
+        done();
+        router.refresh();
+        flash(`Du er ${match} på denne enheten.`);
+      })
+      .catch(() => {})
+      .finally(() => {
+        migrating.current = false;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me]);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
 
   useEffect(() => {
     const d = dialogRef.current;
@@ -49,17 +136,25 @@ export function MeButton() {
     let cancelled = false;
     setQ("");
     setError(null);
+    setLoadFailed(false);
     fetch("/api/me", { cache: "no-store" })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
       .then((data) => {
         if (cancelled) return;
-        setNames(Array.isArray(data.names) ? data.names : []);
+        setNames(Array.isArray(data.names) ? data.names.filter((n: unknown) => typeof n === "string") : []);
       })
-      .catch(() => !cancelled && setNames([]));
+      .catch(() => {
+        if (cancelled) return;
+        setNames(null);
+        setLoadFailed(true);
+      });
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, attempt]);
 
   useEffect(() => {
     if (!open || !names) return;
@@ -81,7 +176,8 @@ export function MeButton() {
   function flash(msg: string) {
     setToast(msg);
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 4000);
+    // Long messages stay up long enough to be read.
+    toastTimer.current = setTimeout(() => setToast(null), Math.max(4000, msg.length * 70));
   }
 
   async function pick(name: string | null) {
@@ -100,6 +196,7 @@ export function MeButton() {
   }
 
   const meNorm = me ? normName(me) : null;
+  const kb = useKeyboardArea(open);
 
   return (
     <>
@@ -123,9 +220,15 @@ export function MeButton() {
         onClose={() => setOpen(false)}
         onClick={(e) => e.target === dialogRef.current && !busy && setOpen(false)}
         className="mx-auto mb-4 mt-auto w-[calc(100%-2rem)] max-w-md animate-pop rounded-2xl bg-cream p-0 text-plum shadow-[0_20px_50px_-12px_rgba(44,10,20,0.45)] sm:my-auto"
+        // Keyboard open: fill the visible area above it with a fixed height, so the sheet
+        // neither hides behind the keyboard nor shrinks as the search narrows the list.
+        style={kb ? { marginTop: kb.top + 8, marginBottom: "auto", maxHeight: kb.height - 16 } : undefined}
       >
         {open && (
-          <div className="flex max-h-[min(36rem,calc(100dvh-3rem))] flex-col p-5">
+          <div
+            className="flex max-h-[min(36rem,calc(100dvh-3rem))] flex-col p-5"
+            style={kb ? { height: kb.height - 16, maxHeight: kb.height - 16 } : undefined}
+          >
             <div className="flex items-center justify-between">
               <h3 id="meg-tittel" className="font-display text-xl font-semibold text-wine">
                 Hvem er du?
@@ -170,7 +273,18 @@ export function MeButton() {
             )}
 
             <div className="-mx-2 mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain px-2">
-              {names === null ? (
+              {loadFailed ? (
+                <p role="alert" className="py-4 text-sm text-plum/70">
+                  Fikk ikke hentet navnene.{" "}
+                  <button
+                    type="button"
+                    onClick={() => setAttempt((a) => a + 1)}
+                    className="font-medium text-wine underline underline-offset-4"
+                  >
+                    Prøv igjen
+                  </button>
+                </p>
+              ) : names === null ? (
                 <p className="py-4 text-sm text-plum/60">
                   Henter navn
                   <span className="dots" />
@@ -223,7 +337,11 @@ export function MeButton() {
               )}
             </div>
 
-            {error && <p className="mt-2 text-sm text-wine">{error}</p>}
+            {error && (
+              <p role="alert" className="mt-2 text-sm text-wine">
+                {error}
+              </p>
+            )}
 
             {me && (
               <button
@@ -240,13 +358,22 @@ export function MeButton() {
       </dialog>
 
       {/* Portal: the header's backdrop-blur would otherwise make `fixed` relative to the header. */}
-      {toast &&
+      {/* The live region stays mounted so screen readers announce each message. */}
+      {mounted &&
         createPortal(
           <div
             role="status"
-            className="fixed bottom-4 left-1/2 z-50 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 animate-pop rounded-2xl bg-sage px-5 py-2 text-center text-sm font-medium text-white shadow-lg"
+            aria-live="polite"
+            className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4"
           >
-            {toast}
+            {toast && (
+              <div
+                key={toast}
+                className="w-max max-w-full animate-pop rounded-2xl bg-sage px-5 py-2 text-center text-sm font-medium text-white shadow-lg [overflow-wrap:anywhere]"
+              >
+                {toast}
+              </div>
+            )}
           </div>,
           document.body,
         )}

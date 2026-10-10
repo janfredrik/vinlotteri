@@ -15,6 +15,12 @@ describe("gridLabel", () => {
   });
 });
 
+describe("gridLabel with emoji", () => {
+  it("cuts by characters, never in the middle of an emoji", () => {
+    expect(gridLabel("Kari🍷🍷🍷🍷")).toBe("Kari🍷🍷🍷");
+  });
+});
+
 describe("formatPrice", () => {
   it("uses a decimal comma and two decimals only when needed", () => {
     expect(formatPrice(169.9)).toBe("169,90");

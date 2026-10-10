@@ -28,8 +28,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const round = getRound(roundId);
   if (!round) return NextResponse.json({ error: "Runden finnes ikke." }, { status: 404 });
 
-  const body = await req.json().catch(() => ({}));
-  const action = body.action as string;
+  // A body that isn't a JSON object (empty, `null`, a string) is treated as an empty request.
+  const raw: unknown = await req.json().catch(() => null);
+  const body = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const action = body.action;
   const holdIds = await readHoldIds();
 
   if (action === "hold") {

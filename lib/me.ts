@@ -32,6 +32,8 @@ export async function chooseMe(name: string | null): Promise<string | null> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
+  }).catch(() => {
+    throw new Error("Fikk ikke kontakt med serveren. Sjekk nettet og prøv igjen.");
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || "Noe gikk galt.");

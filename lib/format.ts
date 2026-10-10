@@ -5,7 +5,8 @@ export const NAME_DISPLAY_MAX = 7;
 export function gridLabel(name: string | null | undefined, max = NAME_DISPLAY_MAX): string | null {
   if (!name) return null;
   const t = name.trim();
-  return t.length <= max ? t : t.slice(0, max);
+  // Cut by characters, not UTF-16 units, so an emoji at the edge isn't split in half.
+  return t.length <= max ? t : [...t].slice(0, max).join("");
 }
 
 /** 169.9 -> "169,90", 170 -> "170" (Norwegian decimal comma). */

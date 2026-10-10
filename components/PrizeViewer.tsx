@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { largeImage, vinmonopoletUrl } from "@/lib/vinmonopolet";
 
 export interface PrizeView {
@@ -32,6 +32,21 @@ export function PrizeThumb({
   onOpen: (v: PrizeView) => void;
   className: string;
 }) {
+  // Vinmonopolet has no picture for some items: show a bottle instead of a broken image.
+  const [broken, setBroken] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+  // An image that already failed before hydration never fires onError for React.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth === 0) setBroken(true);
+  }, []);
+  if (broken) {
+    return (
+      <div className={`flex shrink-0 items-center justify-center ${className}`} aria-hidden="true">
+        <span className="text-3xl">🍾</span>
+      </div>
+    );
+  }
   return (
     <button
       type="button"
@@ -40,7 +55,7 @@ export function PrizeThumb({
       className={`group relative flex shrink-0 cursor-zoom-in items-center justify-center rounded-md outline-offset-2 ${className}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={view.img} alt="" className="h-full w-auto object-contain transition-transform duration-200 ease-out group-hover:scale-105" />
+      <img ref={imgRef} src={view.img} alt="" onError={() => setBroken(true)} className="h-full w-auto object-contain transition-transform duration-200 ease-out group-hover:scale-105" />
       <span
         aria-hidden="true"
         className="pointer-events-none absolute left-0 top-1/2 z-20 hidden w-44 -translate-y-1/2 origin-left scale-95 rounded-xl border border-plum/10 bg-white p-3 opacity-0 shadow-[0_18px_40px_-14px_rgba(44,10,20,0.4)] transition duration-200 ease-out [@media(hover:hover)_and_(pointer:fine)]:block group-hover:scale-100 group-hover:opacity-100 group-hover:delay-150"
