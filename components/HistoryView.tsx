@@ -133,7 +133,7 @@ export default async function HistoryPage({ ar }: { ar?: string }) {
         <HeatmapPanel stats={stats} />
       </div>
 
-      <Leaderboards stats={stats} />
+      <Leaderboards stats={stats} me={me} />
 
       <RoundLedger rows={rows} me={me} withYear={withYear} />
     </div>
@@ -539,7 +539,7 @@ interface BoardRow {
   sort: number;
 }
 
-function Leaderboards({ stats }: { stats: LotteryStats }) {
+function Leaderboards({ stats, me }: { stats: LotteryStats; me: string | null }) {
   const boards: { title: string; note?: string; rows: BoardRow[] }[] = [
     {
       title: "Flest seire",
@@ -566,7 +566,7 @@ function Leaderboards({ stats }: { stats: LotteryStats }) {
     },
     {
       title: "Flaks-indeks",
-      note: "Seire delt på antall lodd. Bare de som har kjøpt minst 5 lodd til sammen er med.",
+      note: "Seire delt på antall lodd. Bare de som har kjøpt minst 5 lodd totalt er med.",
       rows: stats.luckIndex.map((p) => ({
         key: p.name,
         name: p.name,
@@ -579,13 +579,21 @@ function Leaderboards({ stats }: { stats: LotteryStats }) {
       })),
     },
     {
-      title: "Venter fortsatt",
-      note: "Flest lodd uten en eneste seier.",
-      rows: stats.unluckiest.map((p) => ({
+      title: "Lengst tørke",
+      note: "Lodd kjøpt siden siste seier. For dem som aldri har vunnet, teller alle.",
+      rows: stats.drought.map((p) => ({
         key: p.name,
         name: p.name,
-        sort: p.lodd,
-        value: `${p.lodd} lodd`,
+        sort: p.lodd * 1000 + p.rounds,
+        value: (
+          <>
+            {p.lodd} lodd
+            <span className="text-plum/60">
+              {" "}
+              · {p.neverWon ? "aldri vunnet" : `${p.rounds} runde${p.rounds === 1 ? "" : "r"}`}
+            </span>
+          </>
+        ),
       })),
     },
   ];
@@ -600,8 +608,13 @@ function Leaderboards({ stats }: { stats: LotteryStats }) {
               <ol className="divide-y divide-plum/5 text-sm">
                 {b.rows.map((row, i) => {
                   const rank = competitionRanks(b.rows.map((r) => r.sort))[i];
+                  const isMe = !!me && normName(row.name) === normName(me);
                   return (
-                    <li key={row.key} className="flex items-center gap-3 py-1.5 lg:gap-2">
+                    <li
+                      key={row.key}
+                      aria-current={isMe ? "true" : undefined}
+                      className={`flex items-center gap-3 py-1.5 lg:gap-2 ${isMe ? "-mx-1.5 rounded-md bg-gold-soft/70 px-1.5" : ""}`}
+                    >
                       <span
                         className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums ${
                           rank === 1 ? "bg-gold-soft text-plum" : "text-plum/60"

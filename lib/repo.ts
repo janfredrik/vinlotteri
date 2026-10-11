@@ -971,19 +971,25 @@ export function personStats(roundIds: number[], name: string): PersonStats {
 const MIN_LODD_FOR_LUCK_INDEX = 5;
 
 /** Fun facts across a set of rounds (typically the completed ones): who wins the most,
- *  who shows up most often, and a per-square win heatmap. */
+ *  who shows up most often, who has waited longest, and a per-square win heatmap. */
 export function computeStats(roundIds: number[], limit = 5): LotteryStats {
   const winners = new Map<string, { name: string; wins: number }>();
+  // dryLodd/dryRounds count since the last win, so rounds must be walked oldest first.
   const participants = new Map<
     string,
-    { name: string; rounds: Set<number>; lodd: number; wins: number }
+    { name: string; rounds: Set<number>; lodd: number; wins: number; dryLodd: number; dryRounds: number }
   >();
+  const wanted = new Set(roundIds);
+  const chrono = listRounds()
+    .filter((r) => wanted.has(r.id))
+    .map((r) => r.id)
+    .reverse();
   const squares = new Map<string, { row: number; col: number; sold: number; wins: number }>();
   let gridSize = 6;
   let totalWins = 0;
   let locatedWins = 0;
 
-  for (const roundId of roundIds) {
+  for (const roundId of chrono) {
     const round = getRound(roundId);
     if (round) gridSize = Math.max(gridSize, round.grid_size);
 
@@ -994,8 +1000,12 @@ export function computeStats(roundIds: number[], limit = 5): LotteryStats {
         rounds: new Set<number>(),
         lodd: 0,
         wins: 0,
+        dryLodd: 0,
+        dryRounds: 0,
       };
       p.lodd += 1;
+      p.dryLodd += 1;
+      if (!p.rounds.has(roundId)) p.dryRounds += 1;
       p.rounds.add(roundId);
       participants.set(c.buyer_name_norm, p);
 
@@ -1013,7 +1023,11 @@ export function computeStats(roundIds: number[], limit = 5): LotteryStats {
       w.wins += 1;
       winners.set(key, w);
       const p = participants.get(key);
-      if (p) p.wins += 1;
+      if (p) {
+        p.wins += 1;
+        p.dryLodd = 0;
+        p.dryRounds = 0;
+      }
 
       if (d.row && d.col) {
         const sKey = `${d.row},${d.col}`;
@@ -1031,10 +1045,10 @@ export function computeStats(roundIds: number[], limit = 5): LotteryStats {
     .sort((a, b) => b.pct - a.pct || b.wins - a.wins)
     .slice(0, limit);
 
-  const unluckiest = [...participants.values()]
-    .filter((p) => p.wins === 0 && p.lodd > 0)
-    .map((p) => ({ name: p.name, lodd: p.lodd }))
-    .sort((a, b) => b.lodd - a.lodd)
+  const drought = [...participants.values()]
+    .filter((p) => p.dryLodd > 0)
+    .map((p) => ({ name: p.name, lodd: p.dryLodd, rounds: p.dryRounds, neverWon: p.wins === 0 }))
+    .sort((a, b) => b.lodd - a.lodd || b.rounds - a.rounds)
     .slice(0, limit);
 
   return {
@@ -1044,7 +1058,7 @@ export function computeStats(roundIds: number[], limit = 5): LotteryStats {
       .sort((a, b) => b.rounds - a.rounds || b.lodd - a.lodd)
       .slice(0, limit),
     luckIndex,
-    unluckiest,
+    drought,
     gridSize,
     squares: [...squares.values()].map(({ row, col, wins, sold }) => ({ row, col, wins, sold })),
     locatedWins,

@@ -146,9 +146,12 @@ export interface LuckStat {
   pct: number;
 }
 
-export interface UnluckyStat {
+/** Lodd and rounds since someone's last win; all of them if they never won. */
+export interface DroughtStat {
   name: string;
   lodd: number;
+  rounds: number;
+  neverWon: boolean;
 }
 
 /** One square's tally across all rounds, for the win heatmap. */
@@ -163,7 +166,7 @@ export interface LotteryStats {
   topWinners: NameStat[];
   topParticipants: ParticipantStat[];
   luckIndex: LuckStat[];
-  unluckiest: UnluckyStat[];
+  drought: DroughtStat[];
   gridSize: number;
   squares: SquareHeat[];
   /** Winners we could pin to a square, out of all winners — heatmap coverage. */
