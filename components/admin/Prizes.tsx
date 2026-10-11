@@ -319,7 +319,7 @@ export default function Prizes({
     <div className="space-y-4">
       <div>
         <h3 className="font-display text-lg font-semibold text-plum">Premier</h3>
-        <p className="text-sm text-plum/70">Én vinner trekkes per premie. Den som trekkes først velger først, og arrangerer neste runde.</p>
+        <p className="text-sm text-plum/70">Den som trekkes først velger først, og arrangerer neste runde.</p>
       </div>
 
       <ol className="space-y-2">

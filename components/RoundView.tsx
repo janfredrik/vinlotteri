@@ -552,8 +552,7 @@ export default function RoundView({
               rute = kast på nytt).
             </li>
             <li>
-              Vinnerne velger premie i trekkerekkefølge. Kan du ikke være der, legg inn en ønskeliste – ellers velger du
-              blant det som er igjen når du kommer tilbake.
+              Vinnerne velger premie i trekkerekkefølge. Legg inn ønskeliste etter du har kjøpt om du ikke kan delta.
             </li>
           </ul>
         </RulesButton>
@@ -595,7 +594,7 @@ export default function RoundView({
                 onClick={() => cheer(bestWin.col!, bestWin.row!)}
                 className="shrink-0 rounded-full px-2 py-1 text-sm font-medium text-wine underline decoration-gold decoration-2 underline-offset-4 hover:decoration-wine motion-reduce:hidden"
               >
-                Feire igjen 🥂
+                Mer bobler! 🥂
               </button>
             </div>
           )}
