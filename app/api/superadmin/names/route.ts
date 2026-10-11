@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
-import { badRequest, guardAccess } from "@/lib/http";
+import { badRequest, guardSuper } from "@/lib/http";
 import { listNameUses, mergeNames } from "@/lib/repo";
 import { notifyRound } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const denied = await guardAccess();
+  const denied = await guardSuper();
   if (denied) return denied;
   return NextResponse.json({ names: listNameUses() });
 }
 
 /** Merge names: { norms: string[], name: string }. */
 export async function POST(req: Request) {
-  const denied = await guardAccess();
+  const denied = await guardSuper();
   if (denied) return denied;
   const body = await req.json().catch(() => ({}));
   const norms = Array.isArray(body.norms) ? body.norms.filter((n: unknown): n is string => typeof n === "string") : [];

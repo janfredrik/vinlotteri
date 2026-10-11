@@ -15,11 +15,14 @@ export default function Prizes({
   state,
   reload,
   locked,
+  fixable = false,
   flushRef,
 }: {
   state: AdminRoundState;
   reload: () => void;
   locked: boolean;
+  /** Locked, but history editing is on: each prize's details can still be corrected. */
+  fixable?: boolean;
   /** Set to a function that saves whatever is in the form, so the page's Lagre button doesn't drop it. */
   flushRef?: MutableRefObject<(() => Promise<void>) | null>;
 }) {
@@ -329,6 +332,7 @@ export default function Prizes({
             roundId={roundId}
             reload={reload}
             locked={locked}
+            fixable={fixable}
             highlight={p.id === addedId}
           />
         ))}
@@ -521,6 +525,7 @@ function PrizeRow({
   roundId,
   reload,
   locked,
+  fixable,
   highlight,
 }: {
   prize: Prize;
@@ -529,6 +534,7 @@ function PrizeRow({
   roundId: number;
   reload: () => void;
   locked: boolean;
+  fixable: boolean;
   highlight?: boolean;
 }) {
   const [edit, setEdit] = useState(false);
@@ -544,11 +550,30 @@ function PrizeRow({
   const { run, busy, error, setError } = useAction();
   const title = prize.name || `Varenr. ${prize.varenummer ?? "?"}`;
 
+  const [reading, setReading] = useState(false);
+
+  /** A new photo, or a screenshot of the prize: whatever the screenshot shows replaces the fields. */
   async function takeImage(file: File) {
+    setError(null);
     try {
-      setImage((await uploadPrizeImage(file)).url);
+      const up = await uploadPrizeImage(file);
+      setImage(up.url);
+      setReading(true);
+      const o = await ocrPrizeImage(up.id);
+      if (!o.enabled) return;
+      setF((x) => ({
+        name: o.name ?? x.name,
+        price: o.price != null ? String(o.price).replace(".", ",") : x.price,
+        volume: o.volume ?? x.volume,
+        varenummer: o.varenummer ?? x.varenummer,
+        category: o.category ?? x.category,
+      }));
+      // Vinmonopolet's own photo beats a screenshot of the whole product page.
+      if (o.varenummer) setImage(vinmonopoletImage(o.varenummer) ?? up.url);
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setReading(false);
     }
   }
 
@@ -622,7 +647,7 @@ function PrizeRow({
             </p>
           </div>
         ) : (
-          <form id={`pz-${prize.id}`} onSubmit={save} className="grid min-w-0 flex-1 gap-1.5 sm:grid-cols-2">
+          <form id={`pz-${prize.id}`} onSubmit={save} aria-busy={reading} className={`grid min-w-0 flex-1 gap-1.5 sm:grid-cols-2 ${reading ? "animate-shimmer" : ""}`}>
             <input aria-label="Navn" className={field} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Navn" />
             <input aria-label="Pris i kroner" className={field} value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} placeholder="Pris" inputMode="decimal" />
             <input aria-label="Volum" className={field} value={f.volume} onChange={(e) => setF({ ...f, volume: e.target.value })} placeholder="Volum" />
@@ -630,7 +655,7 @@ function PrizeRow({
             <input aria-label="Kategori" className={field} value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} placeholder="Kategori, f.eks. Rødvin" />
           </form>
         )}
-        {!locked && (
+        {(!locked || fixable) && (
           <div className="flex shrink-0 items-center">
             {edit && (
               <label className={`${iconBtn} cursor-pointer`} title="Bytt bilde">
@@ -648,7 +673,7 @@ function PrizeRow({
                 />
               </label>
             )}
-            {!edit && (
+            {!edit && !locked && (
               <>
                 <button
                   type="button"
@@ -676,7 +701,7 @@ function PrizeRow({
               </button>
             ) : (
               <>
-                <button type="submit" form={`pz-${prize.id}`} disabled={busy} className={`${btn.quiet} font-semibold text-wine`}>
+                <button type="submit" form={`pz-${prize.id}`} disabled={busy || reading} className={`${btn.quiet} font-semibold text-wine`}>
                   Lagre
                 </button>
                 <button type="button" onClick={() => setEdit(false)} className={btn.quiet}>

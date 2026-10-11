@@ -1,8 +1,6 @@
-import NameCleanup from "@/components/admin/NameCleanup";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-/** Not linked from anywhere: the organiser opens /admin/navn by hand to tidy up nicknames. */
+/** Name cleanup moved to /superadmin; old bookmarks land there. */
 export default function NamesPage() {
-  return <NameCleanup />;
+  redirect("/superadmin/navn");
 }

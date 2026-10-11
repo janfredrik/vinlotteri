@@ -138,12 +138,12 @@ export default function AdminRound({ roundId }: { roundId: number }) {
   const body: Record<Phase, ReactNode> = {
     forbered: (
       <div className="space-y-8">
-        <Settings state={state} reload={load} locked={locked} beforeSave={async () => flushPrizes.current?.()}>
-          <Prizes state={state} reload={load} locked={locked} flushRef={flushPrizes} />
+        <Settings state={state} reload={load} locked={locked} fixable={locked && state.historyEdit} beforeSave={async () => flushPrizes.current?.()}>
+          <Prizes state={state} reload={load} locked={locked} fixable={locked && state.historyEdit} flushRef={flushPrizes} />
         </Settings>
       </div>
     ),
-    selg: <Sales state={state} reload={load} locked={locked} />,
+    selg: <Sales state={state} reload={load} locked={locked} fixable={locked && state.historyEdit} />,
     trekk: <DrawPanel state={state} reload={load} locked={locked} goTo={goTo} />,
     oppgjor: <Settle state={state} reload={load} goTo={goTo} />,
     stafett: <Handover state={state} onNext={(id) => router.push(`/admin/runde/${id}`)} />,
@@ -226,8 +226,9 @@ export default function AdminRound({ roundId }: { roundId: number }) {
 
       {locked && (
         <p className="rounded-lg bg-parchment/70 px-4 py-3 text-sm text-plum">
-          Runden er gjort opp, så alt er låst unntatt navn på kjøperne, som du kan rette under «Salg». Må noe annet rettes, angrer du oppgjøret under «Oppgjør» dersom ny runde ikke har startet.
-          {state.historyEdit && " Retting av historikk er slått på, så vinnerrutene kan også rettes under «Trekning»."}
+          {state.historyEdit
+            ? "Runden er gjort opp, men retting av historikk er slått på. Du kan rette tittel, arrangør, Vippsnummer og premier under «Forbered», navn på kjøperne under «Salg» og vinnerrutene under «Trekning». Pengene står fast."
+            : "Runden er gjort opp, så alt er låst. Må noe rettes, angrer du oppgjøret under «Oppgjør» dersom ny runde ikke har startet."}
         </p>
       )}
 
