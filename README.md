@@ -55,6 +55,9 @@ Bildene viser anonyme demodata.
   Feil PIN bremses: 3. feil fra samme IP gir 5 min sperre, så dobbelt for hver nye feil (maks
   ett døgn), og over 100 feil totalt siste døgn stenger innlogging for alle nye en periode. Gjelder
   også `?k=`. IP leses fra `CF-Connecting-IP`/`X-Real-IP`. Bruk gjerne en PIN på 6+ sifre.
+- **Superadmin** (`/superadmin`, egen `SUPERADMIN_PIN`) – det bare den som driver lotteriet skal
+  styre: slippe «Årgang» (året oppsummert, fra 2026), rydde i navn og slå på retting av vinnerruter.
+  Uten `SUPERADMIN_PIN` er siden stengt (lokalt uten `SITE_PIN` er den åpen).
 - **Teams-varsler** (valgfritt, `TEAMS_WEBHOOK_URL`) – se under.
 
 ## Kjøre lokalt
@@ -115,13 +118,15 @@ Merknader: vinnernavn lagres slik de er skrevet i arket (initialer eller fullt n
 matcher en rute i rutenettet kobles vinneren til ruten, ellers vises bare navnet. Premienavn hentes
 fra vinnerlinja («1: AB - Rødvin» → premie «Rødvin»), ellers «N. premie».
 
-### Rette vinnerruter i ettertid
+### Rette premier og vinnerruter i ettertid
 
-Vinnere som bare har navn kan kobles til riktig rute i appen. Start med `HISTORY_EDIT=1` i `.env`
-(og `docker compose up -d`). Da viser «Tidligere runder» i `/admin` hvor mange vinnere som mangler
+Vinnere som bare har navn kan kobles til riktig rute i appen. Slå på «Rette historikk» i
+`/superadmin`. Da viser «Tidligere runder» i `/admin` hvor mange vinnere som mangler
 rute, og under «Trekning» i en avsluttet runde kan du trykke «Rett rute» og så ruten i rutenettet.
-Vinnernavnet blir navnet på ruten. Penger og premievalg endres ikke. Alle som kommer forbi PIN-en kan
-administrere, så slå flagget av igjen når du er ferdig. Merk at `import:history --force` overskriver
+Vinnernavnet blir navnet på ruten. Under «Forbered» kan du også rette tittel, arrangør og Vippsnummer,
+og trykke «Endre» på en premie for å rette navn, pris, kategori og bilde. Navn på kjøperne rettes under «Salg». Legg inn et skjermbilde av premien, så leses feltene av (med `OCR_API_KEY`).
+Penger og premievalg endres ikke: mangler runden kost på polet, låses den til dagens sum før første pris rettes. Alle som kommer forbi PIN-en kan
+administrere, så slå bryteren av igjen når du er ferdig. Merk at `import:history --force` overskriver
 rettelsene for ukene den importerer på nytt.
 
 ## Deploy med Docker

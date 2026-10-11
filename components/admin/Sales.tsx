@@ -25,10 +25,13 @@ export default function Sales({
   state,
   reload,
   locked,
+  fixable = false,
 }: {
   state: AdminRoundState;
   reload: () => void;
   locked: boolean;
+  /** Locked, but history editing is on: buyer names can still be corrected. */
+  fixable?: boolean;
 }) {
   const { round, cells, money, draws } = state;
   const roundId = round.id;
@@ -80,12 +83,16 @@ export default function Sales({
             cells={gridCells}
             onCellClick={(gc) => {
               const c = cells.find((c) => c.row === gc.row && c.col === gc.col);
-              // A settled round only lets you correct names, so empty squares have nothing to offer.
+              // A settled round at most lets you correct names, so empty squares have nothing to offer.
               if (c && (!locked || c.status !== "available")) setSelId(c.id);
             }}
           />
           <p className="mt-2 text-xs text-plum/70">
-            {locked ? "Trykk på en solgt rute for å rette navnet." : "Trykk på en rute for å tildele, frigi eller rette navnet."}
+            {!locked
+              ? "Trykk på en rute for å tildele, frigi eller rette navnet."
+              : fixable
+                ? "Trykk på en solgt rute for å rette navnet."
+                : "Trykk på en solgt rute for å se hvem som kjøpte den."}
           </p>
         </div>
 
@@ -174,6 +181,7 @@ export default function Sales({
         cells={cells}
         knownNames={state.knownNames}
         locked={locked}
+        canRename={!locked || fixable}
         onClose={() => setSelId(null)}
         act={act}
         busy={busy}
@@ -233,6 +241,7 @@ function CellDialog({
   cells,
   knownNames,
   locked,
+  canRename,
   onClose,
   act,
   busy,
@@ -242,6 +251,7 @@ function CellDialog({
   cells: Cell[];
   knownNames: string[];
   locked: boolean;
+  canRename: boolean;
   onClose: () => void;
   act: (b: Record<string, unknown>) => Promise<unknown>;
   busy: boolean;
@@ -310,7 +320,7 @@ function CellDialog({
               </>
             )}
 
-            {(c.status === "sold" || c.status === "held") && (
+            {canRename && (c.status === "sold" || c.status === "held") && (
               <RenameForm
                 key={`${c.id}-${c.buyer_name}`}
                 cell={c}

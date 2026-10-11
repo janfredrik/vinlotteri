@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { guardAccess, num } from "@/lib/http";
-import { HISTORY_EDIT } from "@/lib/access";
+import { historyEdit } from "@/lib/settings";
 import { db } from "@/lib/db";
 import { computeMoney } from "@/lib/money";
 import {
@@ -19,6 +19,9 @@ import { notifyRound } from "@/lib/events";
 import { isThemeSetting } from "@/lib/season";
 
 export const dynamic = "force-dynamic";
+
+/** What a settled round lets you correct while history editing is on. */
+const HISTORY_FIELDS = ["title", "organizer_name", "vipps_number"];
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const denied = await guardAccess();
@@ -43,7 +46,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     vipps: await vippsPresentation(round),
     successor: (({ id, title }) => ({ id, title }))(getSuccessor(id) ?? { id: 0, title: "" }),
     knownNames: knownBuyerNames(),
-    historyEdit: HISTORY_EDIT,
+    historyEdit: historyEdit(),
     now: new Date().toISOString(),
   });
 }
@@ -55,10 +58,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (id == null) return NextResponse.json({ error: "Ugyldig runde." }, { status: 400 });
   const round = getRound(id);
   if (!round) return NextResponse.json({ error: "Runden finnes ikke." }, { status: 404 });
-  if (round.status === "settled")
-    return NextResponse.json({ error: "Runden er gjort opp. Angre oppgjøret først hvis noe må endres." }, { status: 409 });
+  let body = await req.json().catch(() => ({}));
+  if (round.status === "settled") {
+    // With history editing on (/superadmin), the facts that don't touch the money can be corrected.
+    if (!historyEdit())
+      return NextResponse.json({ error: "Runden er gjort opp. Angre oppgjøret først hvis noe må endres." }, { status: 409 });
+    body = Object.fromEntries(Object.entries(body ?? {}).filter(([k]) => HISTORY_FIELDS.includes(k)));
+  }
 
-  const body = await req.json().catch(() => ({}));
   const pick = (k: "restriction_lifts_at" | "sales_close_at") => (body && k in body ? body[k] : round[k]);
   const lifts = pick("restriction_lifts_at");
   const closes = pick("sales_close_at");

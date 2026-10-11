@@ -38,8 +38,9 @@ function useKeyboardArea(active: boolean) {
   return area;
 }
 
-/** Top-right profile: a mini grid square with your initials. Tap to pick who you are. */
-export function MeButton() {
+/** Top-right profile: a mini grid square with your initials. Tap to pick who you are.
+ *  With `label`, the same picker opens from a plain text button instead (e.g. inside Wrapped). */
+export function MeButton({ label, className }: { label?: string; className?: string } = {}) {
   const me = useMe();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -203,19 +204,25 @@ export function MeButton() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label={me ? `Profil: ${me} – bytt` : "Velg hvem du er"}
-        title={me ? `Du er ${me}` : "Hvem er du?"}
-        className="-m-1 inline-flex h-11 w-11 items-center justify-center rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-wine"
-      >
-        {me === undefined ? (
-          <span className="h-9 w-9" aria-hidden="true" />
-        ) : (
-          <MeSquare name={me} ring={!!me} fill={fill} />
-        )}
-      </button>
+      {label ? (
+        <button type="button" onClick={() => setOpen(true)} className={className}>
+          {label}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={me ? `Profil: ${me} – bytt` : "Velg hvem du er"}
+          title={me ? `Du er ${me}` : "Hvem er du?"}
+          className="-m-1 inline-flex h-11 w-11 items-center justify-center rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-wine"
+        >
+          {me === undefined ? (
+            <span className="h-9 w-9" aria-hidden="true" />
+          ) : (
+            <MeSquare name={me} ring={!!me} fill={fill} />
+          )}
+        </button>
+      )}
 
       <dialog
         ref={dialogRef}

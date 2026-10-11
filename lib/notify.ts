@@ -20,9 +20,9 @@ export function notificationsEnabled(): boolean {
   return webhookUrls().length > 0;
 }
 
-function roundUrl(roundId: number): string {
+function appUrl(path: string): string {
   const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/+$/, "");
-  return `${base}/runde/${roundId}`;
+  return `${base}${path}`;
 }
 
 interface Message {
@@ -31,6 +31,8 @@ interface Message {
   facts?: [string, string][];
   roundId: number;
   linkLabel?: string;
+  /** Path to link to instead of the round. */
+  path?: string;
 }
 
 function card(m: Message) {
@@ -51,7 +53,7 @@ function card(m: Message) {
               ? [{ type: "FactSet", facts: m.facts.map(([title, value]) => ({ title, value })) }]
               : []),
           ],
-          actions: [{ type: "Action.OpenUrl", title: m.linkLabel ?? "Åpne runden", url: roundUrl(m.roundId) }],
+          actions: [{ type: "Action.OpenUrl", title: m.linkLabel ?? "Åpne runden", url: appUrl(m.path ?? `/runde/${m.roundId}`) }],
         },
       },
     ],
@@ -166,7 +168,22 @@ function drawn(roundId: number): Message | null {
   return { roundId, title: `🏆 Vinnerne er trukket – ${name(round)}`, lines, linkLabel: "Se vinnerne" };
 }
 
+function wrapped(roundId: number, year: number): Message {
+  return {
+    roundId,
+    title: `🍷 Årgang ${year} er tappet`,
+    lines: ["Året i Vinlotteri er oppsummert: vinnerne, rutene, pengene og din egen årgang."],
+    linkLabel: "Smak på året",
+    path: `/wrapped/${year}`,
+  };
+}
+
 /* ---------------------------------------------------------------- triggers --- */
+
+/** Call when the year's Wrapped is released from /superadmin; keyed on the year, so only once. */
+export function onWrappedReleased(roundId: number, year: number): void {
+  notifyOnce(roundId, `wrapped:${year}`, () => wrapped(roundId, year));
+}
 
 /** Call after the round's status has been changed. */
 export function onStatusChange(roundId: number, status: RoundStatus): void {

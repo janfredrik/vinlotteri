@@ -441,3 +441,76 @@ dialog::backdrop {
 @media (prefers-reduced-motion: reduce) {
   .animate-me-fill { animation: none; }
 }
+
+/* Wrapped ("Årgang", /wrapped/[year]): the year as a bottle. Cards are full fields of plum and
+   wine with gold label print; everything inside a card is sized from the card itself (cqmin), so
+   the same card reads on a phone, a laptop and the big screen. */
+.wr-stage {
+  background:
+    radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--color-wine) 35%, transparent), transparent 70%),
+    #1c060d;
+}
+.wr-stage ::selection {
+  background: var(--color-gold-soft);
+  color: var(--color-plum);
+}
+.wr-card {
+  container-type: size;
+  --wr-ink: var(--color-cream);
+  --wr-soft: color-mix(in srgb, var(--color-cream) 72%, transparent);
+  --wr-print: var(--color-gold);
+  color: var(--wr-ink);
+}
+.wr-tone-plum { background-color: var(--color-plum); }
+.wr-tone-wine { background-color: var(--color-wine-dark); }
+.wr-tone-red { background-color: var(--color-wine); --wr-print: var(--color-gold-soft); }
+.wr-print { color: var(--wr-print); }
+/* On a landscape card (the big screen) the label has no height to spare for the engraving. */
+@container (min-aspect-ratio: 1 / 1) {
+  .wr-engraving { display: none; }
+}
+.wr-soft { color: var(--wr-soft); }
+.wr-pad { padding: max(4.75rem, 11cqmin) 8cqmin max(2.25rem, 9cqmin, env(safe-area-inset-bottom)); }
+.wr-h { font-family: var(--font-display); font-weight: 600; line-height: 1.05; text-wrap: balance; letter-spacing: -0.015em; font-size: clamp(1.6rem, 9.5cqmin, 4.5rem); }
+.wr-name { font-family: var(--font-display); font-weight: 600; line-height: 1; letter-spacing: -0.02em; font-size: clamp(2.2rem, 15cqmin, 7rem); overflow-wrap: break-word; hyphens: auto; text-wrap: balance; }
+.wr-title { font-size: clamp(2rem, 11.5cqmin, 5.5rem); }
+.wr-body { font-size: clamp(1rem, 4.6cqmin, 1.9rem); line-height: 1.4; text-wrap: pretty; }
+.wr-small { font-size: clamp(0.8rem, 3.4cqmin, 1.35rem); line-height: 1.35; }
+.wr-caps { text-transform: uppercase; letter-spacing: 0.32em; font-size: clamp(0.7rem, 3.2cqmin, 1.3rem); font-weight: 600; }
+/* Georgia's old-style figures are kept on purpose: they read like a printed label. */
+.wr-num { font-variant-numeric: tabular-nums; }
+.wr-note { font-family: var(--font-display); font-style: italic; font-size: clamp(1.05rem, 5cqmin, 2.2rem); line-height: 1.3; text-wrap: balance; }
+.wr-rule { height: 1px; background: currentColor; opacity: 0.55; }
+
+/* The label on the cover: a double gold frame, printed in when the card opens. */
+.wr-label {
+  border: 1px solid var(--wr-print);
+  outline: 1px solid var(--wr-print);
+  outline-offset: 1.6cqmin;
+  margin: 1.6cqmin;
+}
+@keyframes wr-print-in {
+  from { clip-path: inset(0 0 100% 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@keyframes wr-ink {
+  from { opacity: 0; filter: blur(8px); letter-spacing: 0.02em; }
+  to { opacity: 1; filter: blur(0); }
+}
+@keyframes wr-rise {
+  from { opacity: 0; transform: translateY(2.5cqmin); }
+  to { opacity: 1; transform: none; }
+}
+.wr-on .wr-label { animation: wr-print-in 1.1s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.wr-on .wr-year { animation: wr-ink 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both; }
+.wr-on .wr-rise { animation: wr-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: calc(0.12s + var(--i, 0) * 0.09s); }
+.wr-progress > span > span { transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1); transform-origin: left; }
+@keyframes wr-hint {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.wr-hint { animation: wr-hint 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .wr-on .wr-label, .wr-on .wr-year, .wr-on .wr-rise, .wr-hint { animation: none; }
+  .wr-progress > span > span { transition: none; }
+}

@@ -12,12 +12,15 @@ export default function Settings({
   state,
   reload,
   locked,
+  fixable = false,
   children,
   beforeSave,
 }: {
   state: AdminRoundState;
   reload: () => void;
   locked: boolean;
+  /** Locked, but history editing is on: title, organiser and Vippsnummer can still be corrected. */
+  fixable?: boolean;
   /** Shown between the fields and the save button, outside the form so it can hold forms of its own. */
   children?: ReactNode;
   /** Runs before the round is saved; if it throws, nothing more is saved. */
@@ -49,7 +52,8 @@ export default function Settings({
 
   function validate() {
     const e: typeof errors = {};
-    if (!form.vipps_number.trim()) e.vipps_number = "Fyll inn Vippsnummeret kjøperne skal betale til.";
+    // Imported history may have no Vippsnummer; that shouldn't block correcting the title.
+    if (!locked && !form.vipps_number.trim()) e.vipps_number = "Fyll inn Vippsnummeret kjøperne skal betale til.";
     const lifts = fromLocalInput(form.restriction_lifts_at);
     const closes = fromLocalInput(form.sales_close_at);
     if (lifts && closes && Date.parse(lifts) > Date.parse(closes))
@@ -69,6 +73,12 @@ export default function Settings({
     setBusy(true);
     try {
       await beforeSave?.();
+      if (locked) {
+        await patchRound(r.id, { title: form.title, organizer_name: form.organizer_name, vipps_number: form.vipps_number.trim() });
+        setSavedNote("Lagret.");
+        reload();
+        return;
+      }
       await patchRound(r.id, {
         title: form.title,
         ticket_price: Number(form.ticket_price) || 0,
@@ -96,7 +106,7 @@ export default function Settings({
     }
   }
 
-  const input = "mt-1 block w-full rounded-lg border border-plum/20 bg-white px-3 py-2 text-base sm:text-sm";
+  const input = "mt-1 block w-full rounded-lg border border-plum/20 bg-white px-3 py-2 text-base disabled:bg-parchment/50 disabled:text-plum/60 sm:text-sm";
   const invalid = "border-wine ring-1 ring-wine";
   const season = resolveSeason(form.theme, fromLocalInput(form.sales_close_at));
   const themeSummary = season ? `${seasonInfo(season).emoji} ${seasonInfo(season).label.toLowerCase()}` : "uten tema";
@@ -107,7 +117,7 @@ export default function Settings({
   return (
     <>
       <form id="round-settings" onSubmit={save} noValidate>
-        <fieldset disabled={locked} className="space-y-6">
+        <fieldset disabled={locked && !fixable} className="space-y-6">
           <legend className="sr-only">Innstillinger for runden</legend>
           <div>
             <h3 className="font-display text-lg font-semibold text-plum">Denne uka</h3>
@@ -133,6 +143,7 @@ export default function Settings({
               <Field label="Tittel" wide>
                 <input className={input} value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="Uke 41 – 2026" />
               </Field>
+              <fieldset disabled={locked} className="contents">
               <Field
                 label="Maks-grensen oppheves"
                 hint={errors.restriction_lifts_at ? undefined : "Etter dette kan alle kjøpe så mange de vil. Vanligvis 30 min før trekning."}
@@ -148,6 +159,7 @@ export default function Settings({
               <Field label="Salget stenger" hint={form.sales_close_at ? undefined : "Tomt: salget stenges bare for hånd."}>
                 <DateTimeInput label="Salget stenger" clearable value={form.sales_close_at} onChange={(v) => set("sales_close_at", v)} />
               </Field>
+              </fieldset>
             </div>
           </div>
 
@@ -159,7 +171,7 @@ export default function Settings({
                 {form.notes.trim() && " · med beskjed"}
               </span>
             </summary>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <fieldset disabled={locked} className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Pris per lodd (kr)" error={errors.ticket_price}>
                 <input type="number" min={1} className={`${input} tabular-nums`} value={form.ticket_price} onChange={(e) => set("ticket_price", e.target.value)} />
               </Field>
@@ -190,7 +202,7 @@ export default function Settings({
               <Field label="Beskjed på kjøpesiden" wide>
                 <textarea className={input} rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} />
               </Field>
-            </div>
+            </fieldset>
           </details>
         </fieldset>
       </form>
@@ -198,7 +210,7 @@ export default function Settings({
       {children}
 
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" form="round-settings" disabled={busy || locked} className={btn.primary}>
+        <button type="submit" form="round-settings" disabled={busy || (locked && !fixable)} className={btn.primary}>
           {busy ? "Lagrer…" : r.status === "draft" ? "Lagre og åpne salget" : "Lagre"}
         </button>
         <p aria-live="polite" className="text-sm">

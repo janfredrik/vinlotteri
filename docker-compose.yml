@@ -17,8 +17,8 @@ services:
       OCR_BASE_URL: "${OCR_BASE_URL:-}"
       OCR_MODEL: "${OCR_MODEL:-}"
       TEAMS_WEBHOOK_URL: "${TEAMS_WEBHOOK_URL:-}"
-      # 1 = finished rounds' winning squares can be corrected. Leave off day to day.
-      HISTORY_EDIT: "${HISTORY_EDIT:-}"
+      # Own PIN for /superadmin (Årgang, names, history correction). Blank = closed.
+      SUPERADMIN_PIN: "${SUPERADMIN_PIN:-}"
       TZ: "${TZ:-Europe/Oslo}"
     volumes:
       # Unraid appdata share holds the SQLite database file

@@ -9,10 +9,11 @@ const SITE_PIN = (process.env.SITE_PIN || "").trim();
 /** Gate is active unless SITE_PIN is empty or explicitly "off". */
 export const GATE_ON = SITE_PIN.length > 0 && SITE_PIN.toLowerCase() !== "off";
 
-/** HISTORY_EDIT=1 lets admins correct the winning squares of settled rounds, e.g. imported
- *  history where the sheet only had the winner's name. Off by default: everyone past the PIN
- *  can administer, so it is switched on only while someone with access to the server tidies up. */
-export const HISTORY_EDIT = (process.env.HISTORY_EDIT || "").trim() === "1";
+/** A second PIN for /superadmin: the switches only the one running the lottery should touch
+ *  (releasing the year in review, merging names, correcting history). Unset = /superadmin is
+ *  closed, except on a local site without SITE_PIN, where it is open like everything else. */
+const SUPER_PIN = (process.env.SUPERADMIN_PIN || "").trim();
+export const SUPER_COOKIE = "vl_super";
 
 export const ACCESS_COOKIE = "vl_access";
 export const ACCESS_MAX_AGE = 60 * 60 * 24 * 60; // 60 days
@@ -24,26 +25,24 @@ function b64url(buf: ArrayBuffer): string {
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+async function hmac(secret: string, salt: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return b64url(await crypto.subtle.sign("HMAC", key, enc.encode(salt)));
+}
+
 let cachedToken: Promise<string> | undefined;
+let cachedSuper: Promise<string> | undefined;
 
 /** The value we store in the access cookie: HMAC(SITE_PIN, salt). One-way, so it
  *  can't be reversed to the PIN, and can't be forged without the PIN. */
 export function accessToken(): Promise<string> {
-  if (!cachedToken) {
-    cachedToken = (async () => {
-      const enc = new TextEncoder();
-      const key = await crypto.subtle.importKey(
-        "raw",
-        enc.encode(SITE_PIN),
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["sign"],
-      );
-      const sig = await crypto.subtle.sign("HMAC", key, enc.encode("vl-access-v1"));
-      return b64url(sig);
-    })();
-  }
-  return cachedToken;
+  return (cachedToken ??= hmac(SITE_PIN, "vl-access-v1"));
+}
+
+/** The superadmin cookie, made the same way from SUPERADMIN_PIN. */
+export function superToken(): Promise<string> {
+  return (cachedSuper ??= hmac(SUPER_PIN, "vl-super-v1"));
 }
 
 export function pinMatches(pin: string): boolean {
@@ -53,30 +52,50 @@ export function pinMatches(pin: string): boolean {
 // One brake shared by the middleware (?k=) and /api/access. They run in the same
 // Node process but may be bundled separately, so the instance lives on globalThis.
 const g = globalThis as typeof globalThis & { __vlPinThrottle?: PinThrottle };
+const g2 = g as typeof g & { __vlSuperThrottle?: PinThrottle };
 const throttle = (g.__vlPinThrottle ??= new PinThrottle());
+const superThrottle = (g2.__vlSuperThrottle ??= new PinThrottle());
 
 export type PinResult = { ok: true } | { ok: false; retryAfter: number };
 
 /** Checks a PIN attempt through the brute-force brake. `retryAfter` (seconds) is 0 for
  *  a plain wrong PIN and above 0 when the caller is locked out (the PIN is not even checked). */
 export function tryPin(pin: string, headers: Headers): PinResult {
+  return attempt(throttle, pinMatches(pin), "access", headers);
+}
+
+/** Same as tryPin, for SUPERADMIN_PIN, with a brake of its own. */
+export function trySuperPin(pin: string, headers: Headers): PinResult {
+  return attempt(superThrottle, SUPER_PIN.length > 0 && typeof pin === "string" && pin === SUPER_PIN, "superadmin", headers);
+}
+
+function attempt(brake: PinThrottle, matches: boolean, tag: string, headers: Headers): PinResult {
   const ip = clientIp(headers);
-  const wait = throttle.wait(ip);
+  const wait = brake.wait(ip);
   if (wait > 0) {
-    console.warn(`[access] ${ip} er sperret i ${wait} s`);
+    console.warn(`[${tag}] ${ip} er sperret i ${wait} s`);
     return { ok: false, retryAfter: wait };
   }
-  if (pinMatches(pin)) {
-    throttle.hit(ip);
+  if (matches) {
+    brake.hit(ip);
     return { ok: true };
   }
-  const misses = throttle.miss(ip);
-  console.warn(`[access] Feil PIN fra ${ip} (${misses} på rad)`);
-  return { ok: false, retryAfter: throttle.wait(ip) };
+  const misses = brake.miss(ip);
+  console.warn(`[${tag}] Feil PIN fra ${ip} (${misses} på rad)`);
+  return { ok: false, retryAfter: brake.wait(ip) };
 }
 
 export async function hasAccess(cookieValue: string | undefined | null): Promise<boolean> {
   if (!GATE_ON) return true;
   if (!cookieValue) return false;
   return cookieValue === (await accessToken());
+}
+
+/** Whether /superadmin can be unlocked at all. */
+export const SUPER_ON = SUPER_PIN.length > 0;
+
+export async function hasSuper(cookieValue: string | undefined | null): Promise<boolean> {
+  if (!SUPER_ON) return !GATE_ON;
+  if (!cookieValue) return false;
+  return cookieValue === (await superToken());
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { guardAccess, num } from "@/lib/http";
-import { HISTORY_EDIT } from "@/lib/access";
+import { historyEdit } from "@/lib/settings";
 import { notifyRound } from "@/lib/events";
 import { onStatusChange } from "@/lib/notify";
 import {
@@ -26,7 +26,9 @@ import {
   skipChoice,
   syncAfterChoice,
   updatePrize,
+  updateRound,
 } from "@/lib/repo";
+import { computeMoney } from "@/lib/money";
 import { awaitingChoice, settleCheck } from "@/lib/phases";
 import type { RoundStatus } from "@/lib/types";
 
@@ -48,10 +50,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // A settled round is history: the money has been carried forward, so nothing may change
   // until the settlement is undone.
-  // Correcting a buyer's name is the exception - it's history the stats read, not money.
-  // So is correcting a winning square, but only while HISTORY_EDIT is switched on.
-  if (round.status === "settled" && type !== "status" && type !== "next" && type !== "cellRename" && type !== "drawSquare")
-    return conflict("Runden er gjort opp. Angre oppgjøret først hvis noe må endres.");
+  // The exceptions are what the stats read, not money: a buyer's name, a winning square and a prize's
+  // details, and only while history editing is switched on in /superadmin. The money stays put: see prizeUpdate.
+  const historyFix = ["cellRename", "drawSquare", "prizeUpdate"].includes(type);
+  if (round.status === "settled" && type !== "status" && type !== "next" && !(historyFix && historyEdit()))
+    return conflict(
+      historyFix
+        ? "Retting av historikk er ikke slått på."
+        : "Runden er gjort opp. Angre oppgjøret først hvis noe må endres.",
+    );
 
   switch (type) {
     case "status": {
@@ -137,7 +144,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       break;
     }
     case "drawSquare": {
-      if (!HISTORY_EDIT) return NextResponse.json({ error: "Retting av historikk er ikke slått på." }, { status: 403 });
+      if (!historyEdit()) return NextResponse.json({ error: "Retting av historikk er ikke slått på." }, { status: 403 });
       if (round.status !== "settled") return conflict("Bare avsluttede runder kan rettes her.");
       const rank = num(body.rank);
       if (rank == null) return NextResponse.json({ error: "Mangler trekning." }, { status: 400 });
@@ -183,6 +190,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     case "prizeUpdate": {
       const prizeId = num(body.prizeId);
       if (prizeId == null) return NextResponse.json({ error: "Mangler premie." }, { status: 400 });
+      // Kost på polet falls back to the sum of prize prices. In a settled round it's pinned first,
+      // so correcting a price never changes what was carried forward.
+      if (round.status === "settled" && round.polet_cost == null)
+        updateRound(roundId, { polet_cost: computeMoney(round, getCells(roundId), getPrizes(roundId)).poletCost });
       updatePrize(roundId, prizeId, body.patch ?? {});
       break;
     }

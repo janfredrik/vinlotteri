@@ -65,10 +65,19 @@ function Glass({ fill, phase }: { fill: number; phase: Phase }) {
   );
 }
 
-function UnlockForm() {
+interface FormProps {
+  /** Where the PIN is posted. */
+  endpoint?: string;
+  title?: string;
+  lead?: string;
+  /** Where to go once in; otherwise ?next= on the URL. */
+  to?: string;
+}
+
+function UnlockForm({ endpoint = "/api/access", title = "Vinlotteri", lead = "Skriv inn PIN-en for å komme inn.", to }: FormProps) {
   const params = useSearchParams();
   // Reject protocol-relative ("//evil.com") and absolute URLs — only same-site paths.
-  const raw = params.get("next") || "/";
+  const raw = to ?? (params.get("next") || "/");
   const next = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
   // A locked-out magic link (?k=) lands here with ?vent=<seconds>.
   const vent = Number(params.get("vent")) || 0;
@@ -82,7 +91,7 @@ function UnlockForm() {
     e.preventDefault();
     if (!pin || phase === "busy" || phase === "ok" || phase === "wait") return;
     setPhase("busy");
-    const r = await fetch("/api/access", {
+    const r = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pin }),
@@ -127,8 +136,8 @@ function UnlockForm() {
         <Glass fill={fillFor(pin.length, phase)} phase={phase} />
       </div>
 
-      <h1 className="mt-6 font-display text-3xl font-semibold text-wine">Vinlotteri</h1>
-      <p className="mt-2 text-pretty text-sm text-plum/70">Skriv inn PIN-en for å komme inn.</p>
+      <h1 className="mt-6 font-display text-3xl font-semibold text-wine">{title}</h1>
+      <p className="mt-2 text-pretty text-sm text-plum/70">{lead}</p>
 
       {/* The real input sits invisibly on top of the squares, so typing, pasting and
           password managers all work as normal. */}
@@ -186,10 +195,10 @@ function UnlockForm() {
   );
 }
 
-export default function ApnePage() {
+export default function ApnePage(props: FormProps) {
   return (
     <Suspense fallback={<p className="mt-16 text-center text-sm text-plum/60">Laster…</p>}>
-      <UnlockForm />
+      <UnlockForm {...props} />
     </Suspense>
   );
 }

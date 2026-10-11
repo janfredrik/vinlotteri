@@ -736,7 +736,7 @@ function takenCellIds(roundId: number, exceptRank: number): Set<number> {
 
 /** In the draw from the moment sales close: a reserved square can no longer be given up, so it
  *  counts like a sold one - the buyer owes for it either way. */
-function inDraw(c: Cell): boolean {
+export function inDraw(c: Cell): boolean {
   return c.status === "sold" || c.status === "held";
 }
 
@@ -776,7 +776,7 @@ export function physicalDraw(roundId: number, rank: number, row: number, col: nu
   };
 }
 
-/** History correction (HISTORY_EDIT): set which square won draw `rank` after the fact, or clear
+/** History correction (switched on in /superadmin): set which square won draw `rank` after the fact, or clear
  *  it with null. The winner's name follows the square. Prize choice and money are untouched.
  *  Returns an error, if any. */
 export function setDrawSquare(roundId: number, rank: number, cellId: number | null): string | null {

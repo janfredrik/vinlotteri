@@ -40,7 +40,7 @@ export default function DrawPanel({
   // that draw until the result card reveals it.
   const [revealing, setRevealing] = useState<number | null>(null);
   const draws = useMemo(() => state.draws.filter((d) => d.rank !== revealing), [state.draws, revealing]);
-  // HISTORY_EDIT: the draw whose winning square is being corrected by tapping the grid.
+  // History editing (/superadmin): the draw whose winning square is being corrected by tapping the grid.
   const canFix = locked && state.historyEdit;
   const [fixRank, setFixRank] = useState<number | null>(null);
 

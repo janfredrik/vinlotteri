@@ -7,6 +7,7 @@ import { MeSquare, YouChip } from "./MeSquare";
 import { Crown } from "./Grid";
 import Receipt, { KR_INT, kr, signed } from "./Receipt";
 import { prizeOfDraw } from "@/lib/phases";
+import { featuredWrapped, isWrappedOpen } from "@/lib/wrapped";
 import type { Draw, LotteryStats, MoneySummary, Prize, Round, SquareHeat } from "@/lib/types";
 
 /** "Uke 36 – 2026" -> "Uke 36"; "Uke 36" -> "36" when short. */
@@ -69,6 +70,8 @@ export default async function HistoryPage({ ar }: { ar?: string }) {
   });
 
   const stats = computeStats(done.map((r) => r.id));
+  const featured = featuredWrapped();
+  const wrappedYear = year != null && isWrappedOpen(year) ? year : null;
 
   if (rows.length === 0) {
     return (
@@ -110,6 +113,19 @@ export default async function HistoryPage({ ar }: { ar?: string }) {
         )}
       </header>
 
+      {featured != null && (featured === year || year == null) ? (
+        <WrappedBanner year={featured} />
+      ) : (
+        wrappedYear != null && (
+          <Link
+            href={`/wrapped/${wrappedYear}`}
+            className="-mt-6 inline-flex items-center gap-2 font-medium text-wine underline-offset-4 hover:underline"
+          >
+            <Crown className="h-2.5 w-3.5" /> Se hele {wrappedYear} som årgang
+          </Link>
+        )
+      )}
+
       {me && <YourNumbers name={me} stats={personStats(done.map((r) => r.id), me)} />}
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
@@ -121,6 +137,29 @@ export default async function HistoryPage({ ar }: { ar?: string }) {
 
       <RoundLedger rows={rows} me={me} withYear={withYear} />
     </div>
+  );
+}
+
+/** December's year in review, the bottle on the shelf: a wine band that opens the story. */
+function WrappedBanner({ year }: { year: number }) {
+  return (
+    <Link
+      href={`/wrapped/${year}`}
+      className="group flex items-center justify-between gap-4 rounded-2xl bg-plum px-5 py-5 text-cream shadow-[0_18px_40px_-22px_rgba(44,10,20,0.9)] transition-transform active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wine sm:px-7"
+    >
+      <span className="min-w-0">
+        <span className="block font-display text-2xl font-semibold text-balance sm:text-3xl">
+          Årgang <span className="text-gold">{year}</span> er tappet
+        </span>
+        <span className="mt-1 block text-cream/80">Vinnerne, rutene, pengene og din egen årgang.</span>
+      </span>
+      <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-gold px-4 py-2 font-semibold text-plum transition-colors group-hover:bg-gold-soft">
+        Smak på året
+        <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M7.5 4.5 13 10l-5.5 5.5" />
+        </svg>
+      </span>
+    </Link>
   );
 }
 

@@ -32,7 +32,7 @@ export default function NameCleanup() {
   const [done, setDone] = useState<string | null>(null);
 
   useEffect(() => {
-    api("/api/admin/names")
+    api("/api/superadmin/names")
       .then((d) => setNames(d.names))
       .catch((e) => setLoadError((e as Error).message));
   }, []);
@@ -62,8 +62,8 @@ export default function NameCleanup() {
   return (
     <div className={`space-y-6 ${selected.length ? "pb-[55vh]" : ""}`}>
       <header className="space-y-1">
-        <Link href="/admin" className={btn.quiet + " -ml-2"}>
-          ← Arrangør
+        <Link href="/superadmin" className={btn.quiet + " -ml-2"}>
+          ← Superadmin
         </Link>
         <h1 className="font-display text-3xl font-semibold text-wine">Navn</h1>
         <p className="max-w-prose text-plum/70">
@@ -183,7 +183,7 @@ function MergePanel({
 
   const merge = () =>
     run(async () => {
-      const d = await api("/api/admin/names", {
+      const d = await api("/api/superadmin/names", {
         method: "POST",
         body: JSON.stringify({ norms: selected.map((s) => s.norm), name }),
       });

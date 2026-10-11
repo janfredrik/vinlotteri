@@ -18,6 +18,7 @@ Kollegialt vinlotteri som erstatter Excel-arket. Se `PRODUCT.md` for brukere og 
 - Vipps er manuelt. Vippsnummeret er personlig og byttes hver runde, og deltaker bekrefter at han har betalt. Ikke lov automatisk betalingsbekreftelse, forhåndsfylt beløp eller prisfelt fra Vinmonopolet-nøkkelen (den gir bare navn).
 - Alt brukervendt er norsk bokmål. Navnet er "Vinlotteri".
 - Én felles `SITE_PIN` låser hele siden, og alle forbi den kan administrere. Det finnes ingen egen admin-innlogging.
+- `/superadmin` har egen `SUPERADMIN_PIN` (cookie `vl_super`) for slipp av Årgang, navnerydding og bryteren for retting av historikk (tabellen `settings`). API-ene ligger under `/api/superadmin` og bruker `guardSuper()`.
 
 ## Fallgruver
 

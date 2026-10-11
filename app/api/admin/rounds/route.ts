@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { guardAccess } from "@/lib/http";
-import { HISTORY_EDIT } from "@/lib/access";
+import { historyEdit } from "@/lib/settings";
 import { createRound, listRoundSummaries, settledYears } from "@/lib/repo";
 import { notifyRound } from "@/lib/events";
 
@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   const ar = Number(new URL(req.url).searchParams.get("ar"));
   if (ar) return NextResponse.json({ rounds: listRoundSummaries(ar).filter((r) => r.status === "settled") });
   const years = settledYears();
-  return NextResponse.json({ rounds: listRoundSummaries(years[0]), years, historyEdit: HISTORY_EDIT });
+  return NextResponse.json({ rounds: listRoundSummaries(years[0]), years, historyEdit: historyEdit() });
 }
 
 export async function POST(req: Request) {
