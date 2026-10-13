@@ -19,32 +19,7 @@ import Countdown, { formatLeft, useNow } from "@/components/Countdown";
 import { SeasonDrift, SeasonGreeting } from "./SeasonDecor";
 import { resolveSeason } from "@/lib/season";
 import Receipt from "./Receipt";
-
-interface LocalHold {
-  cellId: number;
-  row: number;
-  col: number;
-  name: string;
-}
-
-const holdsKey = (roundId: number) => `vl_holds_${roundId}`;
-
-function readLocalHolds(roundId: number): LocalHold[] {
-  try {
-    const arr = JSON.parse(localStorage.getItem(holdsKey(roundId)) || "[]");
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeLocalHolds(roundId: number, holds: LocalHold[]) {
-  try {
-    localStorage.setItem(holdsKey(roundId), JSON.stringify(holds));
-  } catch {
-    /* ignore */
-  }
-}
+import { type LocalHold, readLocalHolds, reconcileHolds, writeLocalHolds } from "@/lib/localHolds";
 
 type Step = "form" | "reserved" | "pay";
 
@@ -121,23 +96,10 @@ export default function RoundView({
     return () => window.removeEventListener(ME_EVENT, refresh);
   }, [refresh]);
 
-  // Reconcile local holds against server truth. `mine` comes from the vl_holds cookie,
-  // which can lag a refresh behind a fresh reservation (an SSE "update" can reach us
-  // before the hold POST's Set-Cookie is stored), so only drop a hold when the server
-  // actively contradicts it — not merely when `mine` hasn't caught up yet.
+  // Reconcile local holds against server truth (see reconcileHolds for why `mine` alone isn't enough).
   useEffect(() => {
-    const byKey = new Map(cells.map((c) => [`${c.row},${c.col}`, c] as [string, PublicCell]));
-    const sameName = (a: string, b: string) =>
-      a.trim().toLowerCase() === b.trim().toLowerCase();
     setHolds((prev) => {
-      const next = prev.filter((h) => {
-        const c = byKey.get(`${h.row},${h.col}`);
-        if (!c) return true; // not in the grid (yet) — keep
-        if (c.status === "available") return false; // hold expired or was released
-        if (c.status === "sold") return false; // confirmed (here or on another device)
-        // still 'held' — keep unless it's clearly someone else's reservation
-        return c.mine || !c.name || sameName(c.name, h.name);
-      });
+      const next = reconcileHolds(prev, cells);
       if (next.length !== prev.length) writeLocalHolds(roundId, next);
       return next;
     });
