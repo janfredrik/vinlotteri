@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Prize } from "@/lib/types";
 import { vinmonopoletImage } from "@/lib/vinmonopolet";
 
@@ -133,50 +133,68 @@ export function WishList({
 
       <div className="border-t border-plum/10 px-4 pb-4 pt-3">
         <p className="text-sm text-plum/70">
-          Trykk på premiene i den rekkefølgen du helst vil ha dem. Vinner du, får du det øverste ønsket som fortsatt er ledig.
+          Trykk på premiene du vil ha, i den rekkefølgen du helst vil ha dem. Bare premiene du trykker på kommer med. Vinner du, får du det øverste ønsket som fortsatt er ledig.
           Gjelder rutene kjøpt på denne enheten.
         </p>
         <ul className="mt-3 space-y-1.5">
-          {listed.map((p) => {
+          {listed.map((p, i) => {
             const place = ranked.indexOf(p.id) + 1;
             const src = p.image_url || vinmonopoletImage(p.varenummer);
+            // Once there is a list, the prizes left out sit under their own label so nobody reads them as "the rest, in order".
+            const firstLeftOut = ranked.length > 0 && i === ranked.length;
             return (
-              <li
-                key={p.id}
-                // Solid underlay: the row's tinted fill is translucent, and a lifted row passes over others.
-                className="rounded-lg bg-white"
-                ref={(el) => {
-                  if (el) rows.current.set(p.id, el);
-                  else rows.current.delete(p.id);
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggle(p.id)}
-                  aria-pressed={place > 0}
-                  className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm text-plum transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wine ${
-                    place ? "border-wine/40 bg-gold-soft/40" : "border-plum/15 bg-cream hover:border-wine/50"
-                  }`}
+              <Fragment key={p.id}>
+                {firstLeftOut && (
+                  <li aria-hidden="true" className="flex items-center gap-3 pb-0.5 pt-3">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-plum/60">Ikke valgt</span>
+                    <span className="h-px flex-1 bg-plum/15" />
+                  </li>
+                )}
+                <li
+                  // Solid underlay: the row's tinted fill is translucent, and a lifted row passes over others.
+                  className="rounded-lg bg-white"
+                  ref={(el) => {
+                    if (el) rows.current.set(p.id, el);
+                    else rows.current.delete(p.id);
+                  }}
                 >
-                  <span
-                    data-badge
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums ${
-                      place ? "bg-wine text-cream" : "border border-dashed border-plum/30"
+                  <button
+                    type="button"
+                    onClick={() => toggle(p.id)}
+                    aria-pressed={place > 0}
+                    aria-label={place ? `${prizeLabel(p)}, ønske nummer ${place}` : `${prizeLabel(p)}, ikke valgt`}
+                    className={`group/row flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wine ${
+                      place
+                        ? "border-wine/50 bg-gold-soft/45 text-plum"
+                        : "border-dashed border-plum/20 bg-white text-plum/65 hover:border-solid hover:border-wine/50 hover:text-plum"
                     }`}
                   >
-                    {place || null}
-                  </span>
-                  <span className="flex h-11 w-8 shrink-0 items-center justify-center">
-                    {src ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={src} alt="" className="h-full w-auto object-contain" />
-                    ) : (
-                      <span aria-hidden="true" className="text-xl">🍾</span>
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1 font-medium leading-tight">{prizeLabel(p)}</span>
-                </button>
-              </li>
+                    <span
+                      data-badge
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums ${
+                        place
+                          ? "bg-wine text-cream"
+                          : "border border-dashed border-plum/30 text-plum/40 group-hover/row:border-wine/60 group-hover/row:text-wine"
+                      }`}
+                    >
+                      {place || <PlusIcon className="h-3.5 w-3.5" />}
+                    </span>
+                    <span
+                      className={`flex h-11 w-8 shrink-0 items-center justify-center transition-[opacity,filter] ${
+                        place ? "" : "opacity-50 grayscale group-hover/row:opacity-100 group-hover/row:grayscale-0"
+                      }`}
+                    >
+                      {src ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={src} alt="" className="h-full w-auto object-contain" />
+                      ) : (
+                        <span aria-hidden="true" className="text-xl">🍾</span>
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1 font-medium leading-tight">{prizeLabel(p)}</span>
+                  </button>
+                </li>
+              </Fragment>
             );
           })}
         </ul>
@@ -203,6 +221,14 @@ export function WishList({
         </div>
       </div>
     </details>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden="true" className={className}>
+      <path d="M10 4.5v11M4.5 10h11" />
+    </svg>
   );
 }
 
