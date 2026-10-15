@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import type { Prize, PublicCell, RoundState } from "@/lib/types";
+import type { RoundLink } from "@/lib/repo";
 import { useRoundState } from "@/lib/useRoundState";
 import { formatPrice } from "@/lib/format";
 import { vinmonopoletImage } from "@/lib/vinmonopolet";
@@ -12,7 +14,7 @@ import { weekdayTime } from "@/lib/datetime";
 import Grid, { Crown, type GridCell } from "./Grid";
 import VippsCard from "./VippsCard";
 import { YouChip } from "./MeSquare";
-import { celebrateFrom } from "./Cheers";
+import { celebrateFrom, crownFrom } from "./Cheers";
 import { PickYourPrize, WishList } from "./WishList";
 import RulesButton from "./RulesButton";
 import Countdown, { formatLeft, useNow } from "@/components/Countdown";
@@ -57,10 +59,12 @@ export default function RoundView({
   roundId,
   initial,
   initialMe,
+  neighbours,
 }: {
   roundId: number;
   initial: RoundState;
   initialMe: string | null;
+  neighbours: { prev: RoundLink | null; next: RoundLink | null };
 }) {
   const { state, refresh, connected } = useRoundState(roundId, initial);
   const me = useMe(initialMe);
@@ -380,9 +384,10 @@ export default function RoundView({
   const myWinKey = myWins.map((d) => `${d.rank}:${d.col}-${d.row}`).join(",");
   const bestWin = myWins.length ? myWins.reduce((a, b) => (b.rank < a.rank ? b : a)) : null;
 
-  const cheer = useCallback((col: number, row: number) => {
+  // 1. premie gets the crown; every other win gets the bubbles.
+  const cheer = useCallback((col: number, row: number, rank: number) => {
     const el = document.querySelector<HTMLElement>(`[data-cell="${col}-${row}"]`);
-    if (el) celebrateFrom(el);
+    if (el) (rank === 1 ? crownFrom : celebrateFrom)(el);
   }, []);
 
   // Skål! Each of your wins is celebrated once per device: when you open the round, or live
@@ -401,6 +406,7 @@ export default function RoundView({
       .filter((k) => !seen.includes(k))
       .sort((a, b) => parseInt(a) - parseInt(b));
     if (!fresh.length) return;
+    const rank = parseInt(fresh[0]);
     const [col, row] = fresh[0].split(":")[1].split("-").map(Number);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const go = () => {
@@ -410,7 +416,7 @@ export default function RoundView({
         } catch {
           /* ignore */
         }
-        cheer(col, row);
+        cheer(col, row, rank);
       }, 450);
     };
     const onShow = () => {
@@ -459,6 +465,7 @@ export default function RoundView({
       {season && <SeasonDrift season={season} />}
       <header className="flex items-start justify-between gap-3">
         <div>
+          <RoundStepper current={round.title} {...neighbours} />
           <h1 className="font-display text-3xl font-semibold text-wine">
             {round.title || "Vinlotteri"}
             {season && <SeasonGreeting season={season} />}
@@ -549,14 +556,15 @@ export default function RoundView({
                     .sort((a, b) => parseInt(a) - parseInt(b))
                     .join(" og ")}{" "}
                   premie.
+                  {bestWin.rank === 1 && <span className="block text-sm text-plum/75">Du arrangerer neste runde.</span>}
                 </span>
               </p>
               <button
                 type="button"
-                onClick={() => cheer(bestWin.col!, bestWin.row!)}
+                onClick={() => cheer(bestWin.col!, bestWin.row!, bestWin.rank)}
                 className="shrink-0 rounded-full px-2 py-1 text-sm font-medium text-wine underline decoration-gold decoration-2 underline-offset-4 hover:decoration-wine motion-reduce:hidden"
               >
-                Mer bobler! 🥂
+                {bestWin.rank === 1 ? "Kron meg igjen 👑" : "Mer bobler! 🥂"}
               </button>
             </div>
           )}
@@ -1060,5 +1068,42 @@ function CloseButton({ onClick }: { onClick: () => void }) {
         <path d="m5.5 5.5 9 9m0-9-9 9" />
       </svg>
     </button>
+  );
+}
+
+/** "Uke 36 – 2026" -> "Uke 36" when the neighbour is in the same year as the round on screen. */
+function stepLabel(title: string, current: string): string {
+  const year = (t: string) => t.match(/(\d{4})\s*$/)?.[1];
+  return year(title) && year(title) === year(current) ? title.replace(/\s*[–-]\s*\d{4}\s*$/, "") : title;
+}
+
+function Chevron({ dir }: { dir: "left" | "right" }) {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d={dir === "left" ? "M10 3.5 5.5 8 10 12.5" : "M6 3.5 10.5 8 6 12.5"} />
+    </svg>
+  );
+}
+
+/** Step to the week before or after, right above the round's title. */
+function RoundStepper({ current, prev, next }: { current: string; prev: RoundLink | null; next: RoundLink | null }) {
+  if (!prev && !next) return null;
+  const link =
+    "-mx-1.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium text-plum/60 transition-colors hover:bg-wine/5 hover:text-wine focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wine";
+  return (
+    <nav aria-label="Andre runder" className="mb-0.5 flex items-center gap-4">
+      {prev && (
+        <Link href={`/runde/${prev.id}`} className={link} aria-label={`Forrige runde: ${prev.title}`}>
+          <Chevron dir="left" />
+          {stepLabel(prev.title || `Runde ${prev.id}`, current)}
+        </Link>
+      )}
+      {next && (
+        <Link href={`/runde/${next.id}`} className={link} aria-label={`Neste runde: ${next.title}`}>
+          {stepLabel(next.title || `Runde ${next.id}`, current)}
+          <Chevron dir="right" />
+        </Link>
+      )}
+    </nav>
   );
 }

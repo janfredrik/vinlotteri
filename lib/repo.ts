@@ -212,6 +212,26 @@ export function getSuccessor(id: number): Round | undefined {
   );
 }
 
+export interface RoundLink {
+  id: number;
+  title: string;
+}
+
+/** The rounds just before and after this one, for stepping between weeks. Drafts aren't open
+ *  to buyers yet, so they're skipped. */
+export function getRoundNeighbours(id: number): { prev: RoundLink | null; next: RoundLink | null } {
+  const pick = (cmp: "<" | ">", order: string) =>
+    plain<RoundLink>(
+      db
+        .prepare(
+          `SELECT id, title FROM rounds WHERE status != 'draft' AND (datetime(created_at), id) ${cmp}
+            (SELECT datetime(created_at), id FROM rounds WHERE id = ?) ORDER BY ${order} LIMIT 1`,
+        )
+        .get(id),
+    ) ?? null;
+  return { prev: pick("<", CHRONO_DESC), next: pick(">", CHRONO) };
+}
+
 /** Copy a round's setup into a fresh draft, carrying the balance forward. Only once per round:
  *  a second "neste runde" would carry the same money forward twice. */
 export function createNextRound(

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { buildRoundState, myCellIds } from "@/lib/repo";
+import { buildRoundState, getRoundNeighbours, myCellIds } from "@/lib/repo";
 import { readHoldIds } from "@/lib/holds-cookie";
 import { readMe } from "@/lib/me-cookie";
 import { vippsPresentation } from "@/lib/present";
@@ -15,5 +15,5 @@ export default async function RoundPage({ params }: { params: Promise<{ id: stri
   const state = buildRoundState(id, myCellIds(id, await readHoldIds(), me));
   if (!state) notFound();
   const vipps = await vippsPresentation(state.round);
-  return <RoundView roundId={id} initial={{ ...state, vipps }} initialMe={me} />;
+  return <RoundView roundId={id} initial={{ ...state, vipps }} initialMe={me} neighbours={getRoundNeighbours(id)} />;
 }
