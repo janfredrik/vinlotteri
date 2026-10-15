@@ -5,7 +5,7 @@ ser premiene, velger en ledig rute, skriver navnet sitt og betaler med Vipps. Ar
 runden, huker av betalinger og kjører trekningen.
 
 <p align="center">
-  <img src="docs/screenshots/rutenett-desktop.png" alt="Rutenettet med ledige og solgte ruter, premier og Vipps-betaling" width="900">
+  <img src="docs/screenshots/rutenett-desktop.png" alt="Rutenettet med ledige og solgte ruter, profil, ønskeliste, premier og Vipps-betaling" width="900">
 </p>
 
 ## Skjermbilder
