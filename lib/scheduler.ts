@@ -1,4 +1,4 @@
-// Once-a-minute background check for time-based Teams messages ("stenger om 1 time").
+// Once-a-minute background check for time-based Teams messages ("stenger om 1 time", purring kl. 11).
 // Sales close by the clock (status stays "open"), so nothing else would notice the deadline.
 import { checkDeadlines, notificationsEnabled } from "./notify";
 

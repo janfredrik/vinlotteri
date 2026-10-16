@@ -183,6 +183,7 @@ Appen poster når:
 
 - **loddsalget åpner** – arrangør og premier
 - **salget stenger om 1 time** – solgte/ledige lodd og pott (flyttes stengetiden, kommer det et nytt varsel)
+- **kl. 11 den dagen salget stenger, hvis under halvparten av loddene er solgt** – purring med solgte/ledige lodd (ikke hvis salget stenger før kl. 12, da kommer stengevarselet i stedet)
 - **alle vinnere er trukket** – vinnerliste med rute og valgt premie, hvem som arrangerer neste runde, hvor mye som vippses videre, og en påminnelse om å avslutte runden
 
 Hver melding sendes bare én gang per runde (lagret i tabellen `notifications`), også om du angrer

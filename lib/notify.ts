@@ -143,6 +143,18 @@ function closingSoon(roundId: number): Message | null {
   };
 }
 
+function nudge(roundId: number): Message | null {
+  const s = salesFacts(roundId);
+  if (!s) return null;
+  return {
+    roundId,
+    title: `🍷 Fortsatt ${s.free} ledige ruter – ${name(s.round)}`,
+    lines: [`Mindre enn halvparten av loddene er solgt, og salget stenger ${weekdayTime(s.round.sales_close_at)}.`],
+    facts: s.facts,
+    linkLabel: "Kjøp lodd",
+  };
+}
+
 function drawn(roundId: number): Message | null {
   const round = getRound(roundId);
   if (!round) return null;
@@ -194,9 +206,36 @@ export function onStatusChange(roundId: number, status: RoundStatus): void {
 const HOUR = 3_600_000;
 const TOO_LATE = 5 * 60_000;
 
-/** The "stenger om 1 time" reminder for open rounds; run by lib/scheduler.ts every minute. */
+/** Local time of the closing-day "under halvparten solgt" nudge, with some slack for restarts. */
+const NUDGE_HOUR = 11;
+const NUDGE_WINDOW_MIN = 30;
+
+/**
+ * Whether an open round gets the 11:00 nudge: on the day sales close, within the window, less than
+ * half sold, and not so close to the deadline that the "stenger om 1 time" message covers it.
+ */
+export function shouldNudge(
+  r: { sales_close_at: string | null; sold: number; total: number },
+  now: Date,
+): boolean {
+  if (!r.sales_close_at) return false;
+  const close = new Date(r.sales_close_at);
+  if (Number.isNaN(close.getTime()) || localDate(close) !== localDate(now)) return false;
+  if (now.getHours() !== NUDGE_HOUR || now.getMinutes() >= NUDGE_WINDOW_MIN) return false;
+  if (r.total === 0 || r.sold * 2 >= r.total) return false;
+  return close.getTime() - now.getTime() > HOUR;
+}
+
+/** Local calendar date. */
+function localDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Time-based messages for open rounds; run by lib/scheduler.ts every minute. */
 export function checkDeadlines(now = Date.now()): void {
   if (!notificationsEnabled()) return;
+  checkNudges(new Date(now));
   const rounds = db
     .prepare("SELECT id, sales_close_at FROM rounds WHERE status = 'open' AND sales_close_at IS NOT NULL")
     .all() as { id: number; sales_close_at: string }[];
@@ -205,5 +244,22 @@ export function checkDeadlines(now = Date.now()): void {
     if (Number.isNaN(left)) continue;
     // Keyed on the deadline itself, so moving it gives a fresh reminder.
     if (left > TOO_LATE && left <= HOUR) notifyOnce(r.id, `closing:${r.sales_close_at}`, () => closingSoon(r.id));
+  }
+}
+
+/** The 11:00 nudge on closing day when less than half the tickets are sold; once per round and deadline. */
+function checkNudges(now: Date): void {
+  const rounds = db
+    .prepare(
+      `SELECT r.id, r.sales_close_at,
+              SUM(c.status = 'sold') AS sold, COUNT(c.round_id) AS total
+         FROM rounds r LEFT JOIN cells c ON c.round_id = r.id
+        WHERE r.status = 'open' AND r.sales_close_at IS NOT NULL
+        GROUP BY r.id`,
+    )
+    .all() as { id: number; sales_close_at: string; sold: number | null; total: number }[];
+  for (const r of rounds) {
+    if (shouldNudge({ ...r, sold: r.sold ?? 0 }, now))
+      notifyOnce(r.id, `nudge:${r.sales_close_at}`, () => nudge(r.id));
   }
 }
