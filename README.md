@@ -167,6 +167,9 @@ Et image bygges og publiseres til GHCR ved hver push til `main`
 4. **Salg-fanen:** følg med, marker betalinger etter hvert som Vipps kommer inn. «Steng salg» før trekning.
 5. **Trekning-fanen:** kast terningen fysisk og tast inn kolonne/rad, eller trykk «Trekk vinner» for
    digital trekning. Tom rute → kast på nytt. Vinnerlista på rundesiden oppdateres live.
+   Storskjermen viser trekningen på en TV eller prosjektor (`/runde/<id>/skjerm`). Knappen «Storskjerm»
+   står ved «Regler» på rundesiden (ikke på mobil) fra 5 minutter før salget stenger til trekningen er ferdig. Hver terning du
+   trykker inn vises der med en gang, så navnet. Klikk «Slå på lyd» én gang på skjermen.
 6. **Oppgjør-fanen:** sjekk tallene, «Gjør opp runden», så «Start neste runde». Den nye runden fylles
    automatisk ut: tittel = kommende fredags ukenummer, maks-grense oppheves fredag 14:30, loddsalg
    stenger fredag 15:00, saldoen føres videre, og arrangør settes til 1. premie-vinneren (Vippsnummeret

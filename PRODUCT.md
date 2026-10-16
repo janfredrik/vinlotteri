@@ -9,7 +9,7 @@ web
 ## Users
 
 - **Buyers:** colleagues at one office, on phone or desktop in roughly equal measure. They open the round (often via the QR poster's magic link), look at the prizes, pick one or more free squares on the 6×6 grid, type their name or initials, and pay the organiser with Vipps.
-- **Organiser:** whoever won 1st prize last round arranges the next one. They set the Vippsnummer and prizes, tick off payments as they arrive, and register the draw results after rolling physical dice (or run the digital draw). Nobody watches the app on a shared screen; the draw happens in the room and the organiser types in the outcome.
+- **Organiser:** whoever won 1st prize last round arranges the next one. They set the Vippsnummer and prizes, tick off payments as they arrive, and register the draw results after rolling physical dice (or run the digital draw). The draw happens in the room: the organiser rolls, taps the dice into their phone, and a TV or projector shows the storskjerm (`/runde/[id]/skjerm`), which follows each die live (column, row, crosshair, drumroll, name) so everyone sees the winner at once.
 
 ## Product Purpose
 
@@ -32,7 +32,7 @@ A private, self-hosted ritual tool for one office, not a product for sale. It kn
 - Next.js 16 App Router, Tailwind 4, `node:sqlite`, self-hosted in Docker on Unraid behind SWAG.
 - Live grid via Server-Sent Events; squares held for the buyer until paid.
 - Squares are always shown as **kolonne-rad** ("Rute 5-3" = column 5, row 3).
-- Routes: `/runde/[id]` (buy, and winners once drawn), `/historikk` (history, stats, win heatmap), `/admin` + `/admin/runde/[id]` (settings, prizes, sales, draw, settle), `/apne` (PIN unlock).
+- Routes: `/runde/[id]` (buy, and winners once drawn), `/runde/[id]/skjerm` (the draw on a shared screen), `/historikk` (history, stats, win heatmap), `/admin` + `/admin/runde/[id]` (settings, prizes, sales, draw, settle), `/apne` (PIN unlock).
 
 ## Brand Commitments
 

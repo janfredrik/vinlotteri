@@ -6,6 +6,7 @@ import { vinmonopoletImage } from "./vinmonopolet";
 import { parseWishes, prizeOfDraw, settleCheck, skippedWinners, unclaimedPrizes } from "./phases";
 import { atTime, isoWeek, nextWeekday } from "./datetime";
 import { buildNameUses, type NameUse } from "./names";
+import { getLiveRoll } from "./liveRoll";
 import type {
   Cell,
   Draw,
@@ -938,6 +939,7 @@ export function buildRoundState(roundId: number, mineCellIds: number[] = []): Ro
     salesOpen: salesOpen(round),
     restrictionActive: restrictionActive(round),
     now: nowIso(),
+    live: getLiveRoll(roundId),
   };
 }
 
@@ -985,6 +987,37 @@ export function personStats(roundIds: number[], name: string): PersonStats {
   const luckySquare =
     [...squares.values()].sort((a, b) => b.wins - a.wins || b.sold - a.sold)[0] ?? null;
   return { lodd, rounds: rounds.size, wins, firstPrizes, luckySquare };
+}
+
+export interface HostFacts {
+  /** Rounds this person has organised, this one included. */
+  hosted: number;
+  /** From the finished rounds before this one. */
+  wins: number;
+  firstPrizes: number;
+  lodd: number;
+}
+
+/** For the big screen's last scene: the history of everyone in this draw, keyed by normName,
+ *  since whoever wins 1st prize hosts the next round. */
+export function hostFacts(roundId: number): Record<string, HostFacts> {
+  const all = listRounds();
+  const at = all.findIndex((r) => r.id === roundId);
+  const upTo = at < 0 ? [] : all.slice(at);
+  const before = upTo.slice(1).filter((r) => r.status === "drawn" || r.status === "settled").map((r) => r.id);
+  const out: Record<string, HostFacts> = {};
+  for (const c of getCells(roundId)) {
+    const norm = c.buyer_name_norm;
+    if (!inDraw(c) || !norm || out[norm]) continue;
+    const s = personStats(before, norm);
+    out[norm] = {
+      hosted: upTo.filter((r) => normName(r.organizer_name) === norm).length,
+      wins: s.wins,
+      firstPrizes: s.firstPrizes,
+      lodd: s.lodd,
+    };
+  }
+  return out;
 }
 
 // Minimum lodd before someone's win-rate counts, so one lucky ticket doesn't top the list.

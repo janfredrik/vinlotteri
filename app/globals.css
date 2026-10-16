@@ -514,3 +514,88 @@ dialog::backdrop {
   .wr-on .wr-label, .wr-on .wr-year, .wr-on .wr-rise, .wr-hint { animation: none; }
   .wr-progress > span > span { transition: none; }
 }
+
+/* Storskjerm: the draw on a TV. Sized in cqh of the 16:9 frame, so a laptop and a projector
+   show the same picture. The dice light a column, then a row, and a crosshair lands where they meet. */
+.skjerm-beam {
+  position: relative;
+  z-index: 20;
+  margin: -0.55cqh;
+  border: 0.45cqh solid var(--color-gold);
+  border-radius: 1.3cqh;
+  background: color-mix(in srgb, var(--color-gold-soft) 9%, transparent);
+  box-shadow: 0 0.6cqh 3.2cqh -0.2cqh rgba(194, 147, 58, 0.85), 0 0 0 0.35cqh rgba(231, 207, 156, 0.55);
+  pointer-events: none;
+}
+.skjerm-beam-col { animation: skjerm-beam-col 0.65s cubic-bezier(0.16, 1, 0.3, 1) both, skjerm-beam-glow 1.6s ease-in-out 0.65s infinite; }
+.skjerm-beam-row { animation: skjerm-beam-row 0.65s cubic-bezier(0.16, 1, 0.3, 1) both, skjerm-beam-glow 1.6s ease-in-out 0.65s infinite; }
+@keyframes skjerm-beam-col {
+  from { clip-path: inset(0 0 100% 0 round 1.3cqh); opacity: 0.4; }
+  to { clip-path: inset(-6cqh -6cqh -6cqh -6cqh round 1.3cqh); opacity: 1; }
+}
+@keyframes skjerm-beam-row {
+  from { clip-path: inset(0 100% 0 0 round 1.3cqh); opacity: 0.4; }
+  to { clip-path: inset(-6cqh -6cqh -6cqh -6cqh round 1.3cqh); opacity: 1; }
+}
+@keyframes skjerm-beam-glow {
+  50% { background-color: color-mix(in srgb, var(--color-gold-soft) 18%, transparent); }
+}
+.skjerm-reticle {
+  position: relative;
+  z-index: 25;
+  margin: -1.8cqh;
+  color: var(--color-wine);
+  pointer-events: none;
+  filter: drop-shadow(0 0.4cqh 0.8cqh rgba(44, 10, 20, 0.35));
+  animation: skjerm-reticle-land 0.75s cubic-bezier(0.16, 1, 0.3, 1) both, skjerm-reticle-breathe 1.3s ease-in-out 0.75s infinite;
+}
+.skjerm-reticle.is-reveal {
+  color: var(--color-gold);
+  animation: skjerm-reticle-tighten 0.5s cubic-bezier(0.65, 0, 0.35, 1) infinite alternate;
+}
+@keyframes skjerm-reticle-land {
+  from { opacity: 0; transform: scale(2.8) rotate(-90deg); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: drop-shadow(0 0.4cqh 0.8cqh rgba(44, 10, 20, 0.35)); }
+}
+@keyframes skjerm-reticle-breathe {
+  50% { transform: scale(0.93); }
+}
+@keyframes skjerm-reticle-tighten {
+  from { transform: scale(1); }
+  to { transform: scale(0.84) rotate(45deg); }
+}
+.animate-skjerm-pulse { animation: skjerm-pulse 0.5s cubic-bezier(0.65, 0, 0.35, 1) infinite alternate; }
+@keyframes skjerm-pulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.12); box-shadow: 0 1cqh 2.4cqh -0.6cqh rgba(194, 147, 58, 0.8); }
+}
+.animate-skjerm-nope { animation: skjerm-nope 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes skjerm-nope {
+  0%, 100% { transform: none; }
+  12% { transform: translateX(-1.4cqh) rotate(-4deg); }
+  28% { transform: translateX(1.2cqh) rotate(3deg); }
+  44% { transform: translateX(-0.9cqh) rotate(-2deg); }
+  60% { transform: translateX(0.6cqh) rotate(1deg); }
+  76% { transform: translateX(-0.25cqh); }
+}
+.animate-skjerm-name { animation: skjerm-name 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes skjerm-name {
+  from { opacity: 0; filter: blur(14px); transform: translateY(2cqh) scale(0.96); }
+  to { opacity: 1; filter: blur(0); transform: none; }
+}
+.animate-skjerm-die { animation: skjerm-die 0.6s cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+@keyframes skjerm-die {
+  from { opacity: 0; transform: translateY(-7cqh) rotate(-24deg) scale(0.7); }
+  to { opacity: 1; transform: none; }
+}
+/* A chosen bottle lands on the winners' shelf once it has flown into the scene. */
+.animate-skjerm-shelve { animation: skjerm-shelve 0.8s cubic-bezier(0.34, 1.3, 0.64, 1) 0.9s both; transform-origin: 50% 100%; }
+@keyframes skjerm-shelve {
+  from { opacity: 0; filter: blur(6px); transform: translateY(-5cqh) scale(0.85); }
+  to { opacity: 1; filter: blur(0); transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skjerm-beam-col, .skjerm-beam-row, .skjerm-reticle, .skjerm-reticle.is-reveal,
+  .animate-skjerm-pulse, .animate-skjerm-nope, .animate-skjerm-name, .animate-skjerm-die,
+  .animate-skjerm-shelve { animation: none; }
+}

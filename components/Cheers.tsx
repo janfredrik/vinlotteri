@@ -41,7 +41,12 @@ function popSquare(el: HTMLElement) {
   );
 }
 
-export function celebrateFrom(el: HTMLElement) {
+/** `scale` grows the bubbles for a screen seen from across the room (the big screen uses ~2). */
+export interface CheerOptions {
+  scale?: number;
+}
+
+export function celebrateFrom(el: HTMLElement, { scale = 1 }: CheerOptions = {}) {
   if (prefersCalm()) return;
   el.scrollIntoView({ block: "nearest", behavior: "smooth" });
   popSquare(el);
@@ -71,21 +76,21 @@ export function celebrateFrom(el: HTMLElement) {
   const bubbles: Bubble[] = [];
   const start = performance.now();
   // Fewer bubbles on small screens: same feel, less work for a mid-range phone.
-  const total = window.innerWidth < 640 ? 80 : 130;
+  const total = window.innerWidth < 640 ? 80 : Math.round(130 * Math.sqrt(scale));
   let spawned = 0;
   let last = start;
   let raf = 0;
 
   const spawn = (now: number, burst: boolean) => {
     const rect = el.getBoundingClientRect();
-    const r = 1.6 + Math.random() ** 1.6 * 7.5;
+    const r = (1.6 + Math.random() ** 1.6 * 7.5) * scale;
     bubbles.push({
       x: rect.left + rect.width * (0.05 + Math.random() * 0.9),
       y: rect.top + rect.height * (burst ? 0.4 : 0.15),
       r,
       // The first handful burst outwards like a popped cork; the rest stream upwards.
-      vx: burst ? (Math.random() - 0.5) * 320 : (Math.random() - 0.5) * 40,
-      vy: burst ? -240 - Math.random() * 240 : -50 - Math.random() * 110,
+      vx: (burst ? (Math.random() - 0.5) * 320 : (Math.random() - 0.5) * 40) * scale,
+      vy: (burst ? -240 - Math.random() * 240 : -50 - Math.random() * 110) * scale,
       born: now,
       life: 1900 + Math.random() * 1500,
       wobble: 6 + Math.random() * 14,
@@ -232,7 +237,7 @@ interface Foil {
 }
 
 /** Gold leaf thrown up from the impact: little foil strips that flutter and catch the light as they turn. */
-function throwFoil(originX: number, originY: number) {
+function throwFoil(originX: number, originY: number, scale = 1) {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const canvas = document.createElement("canvas");
   canvas.setAttribute("aria-hidden", "true");
@@ -248,19 +253,19 @@ function throwFoil(originX: number, originY: number) {
   document.body.appendChild(canvas);
 
   const start = performance.now();
-  const count = window.innerWidth < 640 ? 46 : 72;
+  const count = window.innerWidth < 640 ? 46 : Math.round(72 * Math.sqrt(scale));
   const colors = [GOLD, GOLD, GOLD_SOFT, GOLD_SOFT, WINE];
   const foil: Foil[] = Array.from({ length: count }, () => {
     // A fan upwards from the impact, wider than tall, the odd one flung high.
     const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.95;
-    const speed = 380 + Math.random() ** 0.7 * 560;
+    const speed = (380 + Math.random() ** 0.7 * 560) * scale;
     return {
       x: originX + (Math.random() - 0.5) * 16,
       y: originY,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      w: 4 + Math.random() * 5,
-      h: 8 + Math.random() * 9,
+      w: (4 + Math.random() * 5) * scale,
+      h: (8 + Math.random() * 9) * scale,
       rot: Math.random() * Math.PI * 2,
       spin: (Math.random() - 0.5) * 9,
       flip: Math.random() * Math.PI * 2,
@@ -286,8 +291,8 @@ function throwFoil(originX: number, originY: number) {
       }
       // Paper-light: strong drag, gentle gravity, and a sideways sway once it starts to fall.
       f.vx *= 1 - 2.6 * dt;
-      f.vy = f.vy * (1 - 2.4 * dt) + 520 * dt;
-      f.x += (f.vx + Math.sin(age / 210 + f.flip) * 38) * dt;
+      f.vy = f.vy * (1 - 2.4 * dt) + 520 * scale * dt;
+      f.x += (f.vx + Math.sin(age / 210 + f.flip) * 38 * scale) * dt;
       f.y += f.vy * dt;
       f.rot += f.spin * dt;
       f.flip += f.flipSpeed * dt;
@@ -343,7 +348,7 @@ function rippleGrid(el: HTMLElement) {
 
 let crowning = false;
 
-export function crownFrom(el: HTMLElement) {
+export function crownFrom(el: HTMLElement, { scale = 1 }: CheerOptions = {}) {
   if (prefersCalm() || crowning) return;
   crowning = true;
   el.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -353,7 +358,7 @@ export function crownFrom(el: HTMLElement) {
   if (small) small.style.opacity = "0";
 
   const cellW = el.getBoundingClientRect().width;
-  const w = Math.max(64, Math.min(120, cellW * 1.45));
+  const w = Math.max(64, Math.min(120 * scale, cellW * 1.45));
   const h = w * 0.75;
 
   const crown = document.createElement("div");
@@ -454,8 +459,8 @@ export function crownFrom(el: HTMLElement) {
   function impact(rect: DOMRect) {
     navigator.vibrate?.(28);
     rippleGrid(el);
-    throwFoil(rect.left + rect.width / 2, rect.top + 4);
-    celebrateFrom(el);
+    throwFoil(rect.left + rect.width / 2, rect.top + 4, scale);
+    celebrateFrom(el, { scale });
   }
 
   // Resting on the square: a glint runs across the gold, then the crown shrinks into the small one.

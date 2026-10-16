@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { guardAccess, num } from "@/lib/http";
 import { historyEdit } from "@/lib/settings";
 import { notifyRound } from "@/lib/events";
+import { clearRoll, rollDice, settleRoll } from "@/lib/liveRoll";
 import { onStatusChange } from "@/lib/notify";
 import {
   addPrize,
@@ -93,6 +94,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       if (id) notifyRound(id);
       return NextResponse.json({ ok: true, id });
     }
+    case "roll": {
+      // A die tapped on the organiser's phone, sent on to the big screen. Nothing is stored.
+      if (round.status !== "closed") return conflict("Trekningen er ikke i gang.");
+      const rank = num(body.rank);
+      if (rank == null) return NextResponse.json({ error: "Mangler trekning." }, { status: 400 });
+      const die = (v: unknown) => {
+        const n = num(v);
+        return n != null && n >= 1 && n <= round.grid_size ? n : null;
+      };
+      rollDice(roundId, rank, die(body.col), die(body.row));
+      break;
+    }
     case "draw": {
       if (round.status === "draft" || round.status === "open")
         return conflict("Steng loddsalget før trekningen.");
@@ -111,6 +124,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         if (row == null || col == null) return NextResponse.json({ error: "Tast kolonne og rad." }, { status: 400 });
         result = physicalDraw(roundId, rank, row, col);
       }
+      // The big screen shows misses too; they aren't stored anywhere else.
+      settleRoll(roundId, rank, result.outcome, result.col, result.row, method);
       // The status follows the draw: every prize has a winner -> "trukket".
       if (result.outcome === "winner" && settleCheck(getCells(roundId), getPrizes(roundId), getDraws(roundId)).allDrawn) {
         setRoundStatus(roundId, "drawn");
@@ -140,6 +155,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const rank = num(body.rank);
       if (rank == null) return NextResponse.json({ error: "Mangler premie." }, { status: 400 });
       clearDraw(roundId, rank);
+      clearRoll(roundId, rank);
       if (round.status === "drawn") setRoundStatus(roundId, "closed");
       break;
     }

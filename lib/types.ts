@@ -110,6 +110,22 @@ export interface RoundState {
   restrictionActive: boolean;
   now: string;
   vipps?: VippsPresentation;
+  /** The dice roll in progress, for the big screen (lib/liveRoll.ts). */
+  live: LiveRoll | null;
+}
+
+export type LiveOutcome = "winner" | "empty" | "taken" | "no-eligible";
+
+export interface LiveRoll {
+  /** New for every roll; the same while one roll gets its second die and its outcome. */
+  seq: number;
+  /** Which winner is being drawn (draw order). */
+  rank: number;
+  col: number | null;
+  row: number | null;
+  /** null while the dice are still being read off. */
+  outcome: LiveOutcome | null;
+  method: DrawMode;
 }
 
 export interface PublicDraw {

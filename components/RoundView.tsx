@@ -368,6 +368,10 @@ export default function RoundView({
   const liftAt = round.restriction_lifts_at;
   const anyWinner = draws.some((d) => d.winnerName);
   const finished = round.status === "drawn" || round.status === "settled";
+  // The big screen is for the draw: offered from five minutes before sales close until every prize is given.
+  const screenTime =
+    round.status === "closed" ||
+    (salesOpen && !!closeAt && new Date(closeAt).getTime() - SCREEN_LEAD_MS <= now);
   const remainingPrizes = prizes.filter((p) => !draws.some((d) => d.prizeId === p.id));
   // Your own wins this round. With a profile, only wins in your name: squares bought on this
   // device for someone else (or as another profile) are theirs to celebrate. Without one, the
@@ -490,7 +494,7 @@ export default function RoundView({
             )}
           </p>
         </div>
-        <RulesButton connected={connected}>
+        <RulesButton connected={connected} beside={screenTime && <ScreenLink roundId={round.id} />}>
           <ul className="mt-3 space-y-2 text-sm leading-snug text-plum/75 [&>li]:relative [&>li]:pl-4 [&>li]:before:absolute [&>li]:before:left-0 [&>li]:before:top-[0.5em] [&>li]:before:h-1.5 [&>li]:before:w-1.5 [&>li]:before:rounded-full [&>li]:before:bg-wine/40">
             <li>Kr {round.ticket_price},- per lodd.</li>
             {round.max_per_person > 0 && (
@@ -1008,6 +1012,26 @@ function prizeMeta(p: Prize | undefined): string {
  * "stenger om …" in the header line. Plain text until the last hour; then it becomes a wine
  * chip with a clock and ticking m:ss, filled solid for the last ten minutes.
  */
+const SCREEN_LEAD_MS = 5 * 60_000;
+
+/** Opens the draw on the big screen in a new tab: a TV or projector in the room. Not on phones. */
+function ScreenLink({ roundId }: { roundId: number }) {
+  return (
+    <a
+      href={`/runde/${roundId}/skjerm`}
+      target="_blank"
+      rel="noopener"
+      className="animate-pop hidden h-10 items-center gap-1.5 rounded-full border border-wine/20 pl-2.5 pr-3.5 text-sm font-medium text-wine transition-colors hover:border-wine/40 hover:bg-wine/5 sm:inline-flex"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4.5" width="18" height="12" rx="2" />
+        <path d="M8.5 20h7M12 16.5V20" />
+      </svg>
+      Storskjerm
+    </a>
+  );
+}
+
 function ClosesIn({ target, now }: { target: string; now: number }) {
   const left = new Date(target).getTime() - now;
   if (left > 3_600_000) {

@@ -77,6 +77,21 @@ export default function DrawPanel({
   const soldCount = cells.filter((c) => c.status === "sold" || c.status === "held").length;
   const lastRoll = result?.kind === "winner" ? { row: result.row, col: result.col } : null;
 
+  // Every die tapped goes straight on to the big screen. Best effort: the draw itself never waits on it.
+  const sendRoll = (c: number | null, rw: number | null) => {
+    if (next) roundAction(roundId, { type: "roll", rank: next, col: c, row: rw }).catch(() => {});
+  };
+  // After "kast på nytt" the old pair is spent, so tapping one die starts the new roll from scratch.
+  const pickDie = (which: "col" | "row", n: number) => {
+    const fresh = result?.kind === "miss";
+    if (fresh) setResult(null);
+    const c = which === "col" ? n : fresh ? null : col;
+    const rw = which === "row" ? n : fresh ? null : row;
+    setCol(c);
+    setRow(rw);
+    sendRoll(c, rw);
+  };
+
   function announce(rank: number, r: { outcome: string; winnerName: string | null; row: number | null; col: number | null }, c: number, rw: number) {
     if (r.outcome === "winner") {
       setResult({ kind: "winner", rank, name: r.winnerName ?? "", col: r.col ?? c, row: r.row ?? rw });
@@ -259,8 +274,8 @@ export default function DrawPanel({
 
               {mode === "physical" ? (
                 <form onSubmit={physical} className="mt-5 space-y-4">
-                  <DiePicker legend="Kolonne" size={size} value={col} onChange={setCol} />
-                  <DiePicker legend="Rad" size={size} value={row} onChange={setRow} />
+                  <DiePicker legend="Kolonne" size={size} value={col} onChange={(n) => pickDie("col", n)} />
+                  <DiePicker legend="Rad" size={size} value={row} onChange={(n) => pickDie("row", n)} />
                   <button type="submit" disabled={busy || !col || !row} className={`${btn.primary} w-full text-lg`}>
                     {col && row ? (
                       <>
@@ -281,6 +296,20 @@ export default function DrawPanel({
                   {mode === "physical" ? "Trekk digitalt i stedet" : "Bruk terninger i stedet"}
                 </button>
               </p>
+              {/* Closing sales jumps straight here, so the way back is here too, until the first draw. */}
+              {round.status === "closed" && !state.draws.length && (
+                <p className="mt-4 flex flex-wrap items-center justify-center gap-x-2 border-t border-plum/10 pt-4 text-sm text-plum/70">
+                  Stengte du salget for tidlig?
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => run(() => roundAction(roundId, { type: "status", status: "open" }).then(reload))}
+                    className="inline-flex min-h-9 items-center font-semibold text-wine underline underline-offset-4 hover:text-wine-dark disabled:opacity-50"
+                  >
+                    Gjenåpne salget
+                  </button>
+                </p>
+              )}
               <ErrorNote>{error}</ErrorNote>
             </div>
           ) : !next && waiting.length ? (

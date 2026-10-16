@@ -223,15 +223,36 @@ function SaleStatus({
       </div>
     );
   }
+  const canReopen = !locked && !hasDraws && round.status === "closed";
+  const why = canReopen
+    ? "Stengte du for tidlig? Gjenåpne, så kan folk kjøpe ruter igjen til du stenger på nytt."
+    : round.status === "closed" && hasDraws
+      ? "Trekningen har startet, så salget kan ikke gjenåpnes."
+      : null;
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <p className="text-sm text-plum">Salget er stengt.</p>
-      {!locked && !hasDraws && round.status === "closed" && (
-        <button type="button" disabled={busy} onClick={() => act({ type: "status", status: "open" })} className={btn.quiet}>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-plum/10 bg-parchment/60 px-4 py-3">
+      <LockIcon open={false} className="h-6 w-6 shrink-0 self-start text-wine sm:self-center" />
+      <div className="min-w-0 flex-1 basis-56">
+        <p className="font-semibold text-plum">Salget er stengt</p>
+        {why && <p className="text-sm text-plum/70">{why}</p>}
+      </div>
+      {canReopen && (
+        <button type="button" disabled={busy} onClick={() => act({ type: "status", status: "open" })} className={btn.secondary}>
+          <LockIcon open className="h-5 w-5" />
           Gjenåpne salget
         </button>
       )}
     </div>
+  );
+}
+
+function LockIcon({ open, className }: { open: boolean; className: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="10.5" width="14" height="10" rx="2" />
+      <path d={open ? "M8.5 10.5V7.5a3.5 3.5 0 0 1 6.8-1.2" : "M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"} />
+      <path d="M12 14.5v2.5" />
+    </svg>
   );
 }
 

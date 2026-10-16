@@ -24,7 +24,16 @@ export function Die({ face, className = "h-5 w-5" }: { face: number; className?:
 }
 
 /** Die-shaped button in the round header that opens the rules. Each open is a fresh roll. */
-export default function RulesButton({ children, connected }: { children: ReactNode; connected: boolean }) {
+export default function RulesButton({
+  children,
+  connected,
+  beside,
+}: {
+  children: ReactNode;
+  connected: boolean;
+  /** Shown just before the button, on the same row (the big-screen link around the draw). */
+  beside?: ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const [face, setFace] = useState(5);
   const [roll, setRoll] = useState(0);
@@ -96,6 +105,8 @@ export default function RulesButton({ children, connected }: { children: ReactNo
           </button>
         )}
       </div>
+      <div className="flex items-center gap-2">
+      {beside}
       <button
         type="button"
         onClick={toggle}
@@ -112,6 +123,7 @@ export default function RulesButton({ children, connected }: { children: ReactNo
         </span>
         Regler
       </button>
+      </div>
       {open && (
         <div
           id={panelId}
