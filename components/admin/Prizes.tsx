@@ -6,7 +6,7 @@ import { formatPrice } from "@/lib/format";
 import { varenummerFromUrl, vinmonopoletImage } from "@/lib/vinmonopolet";
 import type { AdminRoundState } from "@/lib/adminTypes";
 import type { Prize } from "@/lib/types";
-import { ConfirmButton, ErrorNote, IconCamera, IconDown, IconTrash, IconUp, btn, useAction } from "./ui";
+import { ConfirmButton, ErrorNote, IconCamera, IconCheck, IconDown, IconTrash, IconUp, btn, useAction } from "./ui";
 
 const EMPTY = { varenummer: "", name: "", price: "", volume: "", category: "", image_url: "" };
 type Draft = typeof EMPTY;
@@ -46,7 +46,12 @@ export default function Prizes({
     addedRef.current = id;
     seenAdded.current = false;
     setAddedId(id);
+    setFixing(false);
   }
+  // Once added, the form shows a receipt of the prize; the fields only come back to fix something.
+  const [fixing, setFixing] = useState(false);
+  // Where the added prize's details came from, so the receipt can say how much to trust them.
+  const [source, setSource] = useState<null | "vinmonopolet" | "bilde">(null);
   const [busy, setBusy] = useState(false);
   // The varenummer last looked up, so Hent can stand out while a typed number is still unfetched.
   const [fetchedNr, setFetchedNr] = useState("");
@@ -102,7 +107,8 @@ export default function Prizes({
       }
       if (draftRef.current.name.trim() || draftRef.current.varenummer.trim()) {
         await commit();
-        setMsg("Lagt til fra bildet – sjekk at det stemmer. Endringer her lagres på premien.");
+        setSource("bilde");
+        setMsg(null);
       }
     } catch (e) {
       setMsg((e as Error).message);
@@ -128,7 +134,8 @@ export default function Prizes({
       flashFields(got);
       if (draftRef.current.name.trim()) {
         await commit();
-        setMsg("Lagt til fra Vinmonopolet – sjekk at det stemmer. Endringer her lagres på premien.");
+        setSource("vinmonopolet");
+        setMsg(null);
       }
     } catch (e) {
       setMsg((e as Error).message);
@@ -233,7 +240,8 @@ export default function Prizes({
     try {
       const wasNew = addedRef.current == null;
       await commit();
-      if (wasNew) newPrize(); // typed by hand: clear for the next one, as before
+      if (wasNew) setSource(null); // typed by hand
+      setFixing(false);
     } catch (e) {
       setMsg((e as Error).message);
     } finally {
@@ -312,6 +320,18 @@ export default function Prizes({
 
   const unfetched = /^\d{3,}$/.test(draft.varenummer.trim()) && draft.varenummer.trim() !== fetchedNr;
   const pasteKey = typeof navigator !== "undefined" && /Mac|iP/.test(navigator.platform) ? "⌘V" : "Ctrl+V";
+  const missing = (
+    [
+      ["name", "navn"],
+      ["price", "pris"],
+      ["volume", "volum"],
+      ["category", "kategori"],
+    ] as const
+  )
+    .filter(([k]) => !draft[k].trim())
+    .map(([, l]) => l);
+  const receipt = addedId != null && !fixing && !scan;
+  const image = draft.image_url || vinmonopoletImage(draft.varenummer);
   const input = "mt-1 block w-full rounded-lg border border-plum/20 bg-white px-3 py-2 text-base sm:text-sm";
   const label = "block text-sm font-medium text-plum";
 
@@ -362,9 +382,9 @@ export default function Prizes({
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h4 id="ny-premie" className="font-display text-base font-semibold text-plum">
-              {addedId != null ? `${added ? `${added.rank}. premie` : "Premie"} – lagt til` : "Ny premie"}
+              {addedId != null && fixing ? `Retter ${added ? `${added.rank}. premie` : "premien"}` : "Ny premie"}
             </h4>
-            {addedId != null && (
+            {addedId != null && fixing && (
               <span className="text-xs text-plum/70" aria-live="polite">
                 {dirty ? "Ulagrede endringer" : "✓ Lagret i listen"}
               </span>
@@ -396,29 +416,68 @@ export default function Prizes({
                   "Slipp bildet her"
                 ) : (
                   <>
-                    Lim inn lenke eller bilde fra Vinmonopolet
+                    {receipt ? "Lim inn neste lenke eller varenummer" : "Lim inn lenke eller varenummer fra Vinmonopolet"}
                     <kbd className="ml-2 hidden rounded border border-plum/20 bg-cream px-1.5 py-0.5 font-sans text-xs text-plum/70 sm:inline">
                       {pasteKey}
                     </kbd>
                   </>
                 )}
               </p>
-              <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md border border-plum/20 bg-white px-2.5 text-sm font-medium text-plum transition-colors hover:border-wine/50 hover:text-wine has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-wine">
-                <IconCamera className="h-4 w-4" />
-                Velg bilde
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = ""; // allow picking the same file again
-                    if (f) void takeImage(f);
-                  }}
-                />
-              </label>
+              {!over && (
+                <label className="cursor-pointer text-xs text-plum/70 underline underline-offset-4 hover:text-wine has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-wine">
+                  Har du bare et bilde? Velg bilde
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = ""; // allow picking the same file again
+                      if (f) void takeImage(f);
+                    }}
+                  />
+                </label>
+              )}
             </div>
           )}
+          {receipt ? (
+            <div className="animate-receipt mt-4 flex gap-4 rounded-lg bg-cream p-3 sm:p-4" aria-live="polite">
+              <div className="flex h-28 w-20 shrink-0 items-center justify-center rounded-md bg-white p-1.5 sm:h-32 sm:w-24">
+                {image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={image} alt="" className="h-full w-auto object-contain" />
+                ) : (
+                  <BottleOutline className="h-14 text-plum/20" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1 self-center">
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-sage">
+                  <span className="receipt-check inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sage text-cream">
+                    <IconCheck className="h-3.5 w-3.5" />
+                  </span>
+                  Lagret som {added ? `${added.rank}.` : "ny"} premie
+                </p>
+                <p className="mt-1.5 font-display text-lg font-semibold leading-snug text-plum text-balance">
+                  {draft.name || `Varenr. ${draft.varenummer}`}
+                </p>
+                <p className="mt-0.5 text-sm text-plum/80 tabular-nums">
+                  {[draft.volume, added?.price != null ? `kr ${formatPrice(added.price)}` : draft.price ? `kr ${draft.price}` : null, draft.category].filter(Boolean).join(" · ")}
+                </p>
+                {missing.length > 0 ? (
+                  <p className="mt-2 text-sm text-wine">
+                    Mangler {missing.join(", ").replace(/, ([^,]*)$/, " og $1")}.{" "}
+                    <button type="button" onClick={() => setFixing(true)} className="font-semibold underline underline-offset-4 hover:text-wine-dark">
+                      Fyll inn
+                    </button>
+                  </p>
+                ) : source === "bilde" ? (
+                  <p className="mt-2 text-xs text-plum/70">Lest fra bildet. Se over at det stemmer.</p>
+                ) : source === "vinmonopolet" ? (
+                  <p className="mt-2 text-xs text-plum/70 tabular-nums">Hentet fra Vinmonopolet, varenr. {draft.varenummer}</p>
+                ) : null}
+              </div>
+            </div>
+          ) : (
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:gap-4">
             <div className="flex shrink-0 items-end gap-2 sm:w-24 sm:flex-col sm:items-center sm:gap-1">
               <div className="flex h-24 w-20 items-center justify-center rounded-lg bg-cream p-1.5 sm:h-36 sm:w-full sm:p-2">
@@ -485,6 +544,7 @@ export default function Prizes({
               </label>
             </div>
           </div>
+          )}
           {msg && <p aria-live="polite" className="mt-3 text-sm text-plum/80">{msg}</p>}
           {addedId == null ? (
             <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -499,13 +559,19 @@ export default function Prizes({
             </div>
           ) : (
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <button type="button" onClick={newPrize} disabled={busy || !!scan} className={btn.primary}>
-                Ny premie
-              </button>
-              {dirty && (
-                <button type="submit" disabled={busy} className={btn.secondary}>
-                  Lagre endringer
+              {fixing ? (
+                <button type="submit" disabled={busy} className={btn.primary}>
+                  Ferdig
                 </button>
+              ) : (
+                <>
+                  <button type="button" onClick={newPrize} disabled={busy || !!scan} className={btn.primary}>
+                    Legg til en til
+                  </button>
+                  <button type="button" onClick={() => setFixing(true)} disabled={busy || !!scan} className={btn.secondary}>
+                    Rett opp
+                  </button>
+                </>
               )}
               <button type="button" onClick={undo} disabled={busy || !!scan} className={btn.quiet}>
                 Angre – fjern fra listen
@@ -514,6 +580,26 @@ export default function Prizes({
           )}
         </form>
       )}
+
+      {state.prizes.length > 0 && <PrizeTotal prizes={state.prizes} />}
+    </div>
+  );
+}
+
+/** What the prizes cost together. */
+function PrizeTotal({ prizes }: { prizes: Prize[] }) {
+  const sum = prizes.reduce((s, p) => s + (p.price ?? 0), 0);
+  const unpriced = prizes.filter((p) => p.price == null).length;
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-t border-plum/10 pt-3">
+      <p className="text-sm text-plum">
+        <span className="font-semibold">Sum premier</span>{" "}
+        <span className="text-plum/70">
+          ({prizes.length} {prizes.length === 1 ? "premie" : "premier"}
+          {unpriced > 0 && `, ${unpriced} uten pris`})
+        </span>
+      </p>
+      <p className="font-display text-lg font-semibold tabular-nums text-plum">kr {formatPrice(Math.round(sum * 100) / 100)}</p>
     </div>
   );
 }

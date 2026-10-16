@@ -118,8 +118,20 @@ h1, h2, h3, .font-display {
 .animate-fill {
   animation: fill-flash 1.1s ease-out both;
 }
+/* "Lagt til" receipt in the new-prize form: settles in, then the check pops. */
+@keyframes receipt-in {
+  from { opacity: 0; transform: translateY(6px); box-shadow: 0 0 0 3px rgba(76, 107, 82, 0.35); }
+  to { opacity: 1; transform: none; box-shadow: 0 0 0 0 rgba(76, 107, 82, 0); }
+}
+.animate-receipt {
+  animation: receipt-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-receipt .receipt-check {
+  animation: pop-in 0.3s 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
 @media (prefers-reduced-motion: reduce) {
   .scan-line, .scan-corner, .animate-shimmer, .animate-fill, .dots::after { animation: none; }
+  .animate-receipt, .animate-receipt .receipt-check { animation: none; }
 }
 
 /* Grid cells: reserved squares get a soft diagonal hatch so "pending" reads differently from
