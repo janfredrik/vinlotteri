@@ -9,8 +9,7 @@ import {
 } from "@/lib/access";
 
 export const config = {
-  // Node runtime so process.env.SITE_PIN is read at runtime, not inlined at build.
-  runtime: "nodejs",
+  // Proxy always runs on Node, so process.env.SITE_PIN is read at runtime, not inlined at build.
   matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|manifest.webmanifest|sw.js|icons/|robots.txt|apne|api/access).*)"],
 };
 
@@ -23,7 +22,7 @@ const COOKIE_OPTS = {
   maxAge: ACCESS_MAX_AGE,
 };
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   if (!GATE_ON) return NextResponse.next();
 
   const url = req.nextUrl;

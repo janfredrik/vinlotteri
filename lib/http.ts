@@ -10,7 +10,7 @@ export function badRequest(message: string): NextResponse {
   return NextResponse.json({ error: message }, { status: 400 });
 }
 
-/** Backstop for the admin API routes — middleware already gates them, this is
+/** Backstop for the admin API routes — the proxy already gates them, this is
  *  defence in depth in case a request somehow bypasses it. */
 export async function guardAccess(): Promise<NextResponse | null> {
   const store = await cookies();

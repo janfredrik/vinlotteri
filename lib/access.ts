@@ -49,7 +49,7 @@ export function pinMatches(pin: string): boolean {
   return GATE_ON && typeof pin === "string" && pin === SITE_PIN;
 }
 
-// One brake shared by the middleware (?k=) and /api/access. They run in the same
+// One brake shared by the proxy (?k=) and /api/access. They run in the same
 // Node process but may be bundled separately, so the instance lives on globalThis.
 const g = globalThis as typeof globalThis & { __vlPinThrottle?: PinThrottle };
 const g2 = g as typeof g & { __vlSuperThrottle?: PinThrottle };
