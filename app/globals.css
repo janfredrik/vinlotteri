@@ -373,7 +373,7 @@ dialog::backdrop {
   69% { --flame: 0.94; }
   82% { --flame: 1.09; }
 }
-[data-season="halloween"] [data-status="sold"] {
+:is([data-season="halloween"], [data-skjerm-season="halloween"]) [data-status="sold"] {
   border-color: #6e2e0c;
   background: radial-gradient(
     110% 95% at 50% 62%,
@@ -388,7 +388,7 @@ dialog::backdrop {
   color: #2a0f04;
   animation: lantern 3.3s linear infinite;
 }
-[data-season="halloween"] [data-status="sold"]::before {
+:is([data-season="halloween"], [data-skjerm-season="halloween"]) [data-status="sold"]::before {
   content: "";
   position: absolute;
   top: -1px;
@@ -399,9 +399,9 @@ dialog::backdrop {
   border-radius: 1px 1px 3px 3px;
   background: #3f5a22;
 }
-[data-season="halloween"] [data-cell]:nth-child(3n) { animation-delay: -1.1s; animation-duration: 2.9s; }
-[data-season="halloween"] [data-cell]:nth-child(4n + 1) { animation-delay: -2.4s; }
-[data-season="halloween"] [data-cell]:nth-child(5n + 2) { animation-delay: -0.6s; animation-duration: 3.8s; }
+:is([data-season="halloween"], [data-skjerm-season="halloween"]) [data-cell]:nth-child(3n) { animation-delay: -1.1s; animation-duration: 2.9s; }
+:is([data-season="halloween"], [data-skjerm-season="halloween"]) [data-cell]:nth-child(4n + 1) { animation-delay: -2.4s; }
+:is([data-season="halloween"], [data-skjerm-season="halloween"]) [data-cell]:nth-child(5n + 2) { animation-delay: -0.6s; animation-duration: 3.8s; }
 /* Winners keep their own set; on gold the ink has to be the dark, not bone. */
 [data-season="halloween"] .animate-winner-glow {
   background: radial-gradient(120% 100% at 50% 40%, #fff1c4, var(--color-gold) 70%);
@@ -410,7 +410,38 @@ dialog::backdrop {
 [data-season="halloween"] .animate-winner-glow svg,
 [data-season="halloween"] .animate-sweep { color: var(--color-cream); }
 @media (prefers-reduced-motion: reduce) {
-  [data-season="halloween"] [data-status="sold"] { animation: none; }
+  :is([data-season="halloween"], [data-skjerm-season="halloween"]) [data-status="sold"] { animation: none; }
+}
+
+/* Halloween on the storskjerm stays light, for a room reading it from afar: wine turns aubergine,
+   gold turns pumpkin, and the sold squares are the same lit pumpkins. */
+[data-skjerm-season="halloween"] {
+  --color-wine: #6a2c8a;
+  --color-wine-dark: #4a1d63;
+  --color-gold: #e8731c;
+  --color-gold-soft: #fbd7ae;
+  --color-sage: #4f7a2a;
+}
+.skjerm-bat-flight {
+  position: absolute;
+  left: 0;
+  animation: skjerm-bat-cross linear infinite;
+}
+@keyframes skjerm-bat-cross {
+  0% { transform: translate3d(-8cqh, 0, 0); }
+  25% { transform: translate3d(42cqw, 3cqh, 0); }
+  50% { transform: translate3d(85cqw, -1cqh, 0); }
+  100% { transform: translate3d(185cqw, 2cqh, 0); }
+}
+.skjerm-bat {
+  display: block;
+  animation: skjerm-bat-flap 0.26s ease-in-out infinite alternate;
+}
+@keyframes skjerm-bat-flap {
+  to { transform: scaleY(0.4); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skjerm-bat-flight { display: none; }
 }
 
 /* The night behind the page: fog, the torch beam onto the cellar wall, eyes in the dark. */

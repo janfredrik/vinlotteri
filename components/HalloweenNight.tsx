@@ -166,7 +166,7 @@ export function HalloweenNight() {
 }
 
 /** A corner web: spokes from the corner, sagging threads between them. */
-function Cobweb({ className }: { className: string }) {
+export function Cobweb({ className }: { className: string }) {
   const spokes = [4, 20, 37, 54, 71, 86];
   const rings = [0.22, 0.42, 0.62, 0.84];
   const pt = (deg: number, r: number) => {
@@ -203,7 +203,7 @@ function Cobweb({ className }: { className: string }) {
   );
 }
 
-function Spider({ className }: { className: string }) {
+export function Spider({ className }: { className: string }) {
   return (
     <span
       className={`night-spider absolute flex flex-col items-center ${className}`}

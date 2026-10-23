@@ -10,6 +10,8 @@ import { largeImage, vinmonopoletImage } from "@/lib/vinmonopolet";
 import * as sound from "@/lib/drawSounds";
 import { Crown } from "./Grid";
 import { celebrateFrom, crownFrom } from "./Cheers";
+import { SkjermHalloweenDecor, batsFrom } from "./SkjermHalloween";
+import { roundSeason } from "@/lib/season";
 import type { HostFacts } from "@/lib/repo";
 import type { LiveOutcome, LiveRoll, Prize, PublicDraw, RoundState } from "@/lib/types";
 
@@ -83,6 +85,7 @@ export default function BigScreen({
   const { state, connected } = useRoundState(roundId, initial);
   const { round, prizes, cells, draws } = state;
   const size = round.grid_size;
+  const halloween = roundSeason(round.theme) === "halloween";
   const drawOf = useCallback((rank: number) => draws.find((d) => d.rank === rank), [draws]);
 
   /* ---------------------------------------------------------------- the scene player --- */
@@ -224,6 +227,7 @@ export default function BigScreen({
       const timer = setTimeout(() => {
         const el = d?.col && d.row ? rootRef.current?.querySelector<HTMLElement>(`[data-cell="${d.col}-${d.row}"]`) : null;
         const scale = el ? Math.min(3, Math.max(1, el.getBoundingClientRect().width / 60)) : 1;
+        if (el && halloween) batsFrom(el, { scale });
         if (current.rank === 1) {
           if (el) crownFrom(el, { scale });
           setTimeout(sound.fanfare, 650);
@@ -292,7 +296,7 @@ export default function BigScreen({
             : "Trekningen er ferdig";
 
   return (
-    <Stage rootRef={rootRef} connected={connected} title={round.title} roundId={roundId}>
+    <Stage rootRef={rootRef} connected={connected} title={round.title} roundId={roundId} halloween={halloween}>
       <div className="grid h-full grid-cols-[auto_minmax(0,1fr)] gap-[5cqh]">
         <StageGrid size={size} cells={cells} wins={wins} aim={aim} />
 
@@ -359,12 +363,14 @@ function Stage({
   connected,
   title,
   roundId,
+  halloween,
   children,
 }: {
   rootRef: React.RefObject<HTMLDivElement | null>;
   connected: boolean;
   title: string;
   roundId: number;
+  halloween?: boolean;
   children: React.ReactNode;
 }) {
   const [awake, setAwake] = useState(true);
@@ -468,9 +474,11 @@ function Stage({
   return (
     <div
       ref={rootRef}
+      data-skjerm-season={halloween ? "halloween" : undefined}
       className={`fixed inset-0 z-[35] flex items-center justify-center overflow-hidden bg-cream ${awake ? "" : "cursor-none"}`}
     >
       <div className="skjerm relative aspect-video w-[min(100vw,calc(100dvh*16/9))] [container-type:size]">
+        {halloween && <SkjermHalloweenDecor />}
         <div className="absolute inset-0 flex flex-col px-[5cqh] pb-[4.5cqh] pt-[3.2cqh]">
           <header className="flex h-[5cqh] shrink-0 items-center justify-between gap-[2cqh]">
             <p className="flex min-w-0 items-baseline gap-[1.6cqh]">
@@ -583,6 +591,7 @@ function StageGrid({
                 <div
                   key={isMiss ? `${key}:${aim!.id}` : key}
                   data-cell={`${c}-${r}`}
+                  data-status={rank != null ? "won" : status}
                   style={{ gridColumn: c + 1, gridRow: r + 1 }}
                   className={`relative flex min-w-0 items-center justify-center rounded-[0.9cqh] px-[0.4cqh] text-center ${
                     rank != null ? "z-10 border-[0.3cqh]" : "border"
@@ -954,8 +963,13 @@ function Bottle({ prize, className, standing }: { prize: Prize | undefined; clas
     <div className={`flex justify-center ${standing ? "items-end" : "items-center"} ${className}`}>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        // Vinmonopolet's photos sit on white; multiply lets the bottle stand on the page's own ground.
-        <img src={src} alt="" className={`h-full w-full object-contain mix-blend-multiply ${standing ? "object-bottom" : ""}`} />
+        // Our Polet route already cuts the bottle out. Other photos (uploads, old direct links) sit on
+        // white; multiply lets those stand on the page's own ground.
+        <img
+          src={src}
+          alt=""
+          className={`h-full w-full object-contain ${src.startsWith("/api/polet-bilde/") ? "" : "mix-blend-multiply"} ${standing ? "object-bottom" : ""}`}
+        />
       ) : (
         <svg viewBox="0 0 40 100" aria-hidden="true" className="h-full w-auto text-wine">
           <path d="M16 4h8v22c0 4 9 8 9 20v46a4 4 0 0 1-4 4H11a4 4 0 0 1-4-4V46c0-12 9-16 9-20z" fill="currentColor" />
