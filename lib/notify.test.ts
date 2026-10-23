@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldNudge } from "./notify";
+import { seasonGreeting, shouldNudge } from "./notify";
 
 // Friday 2026-10-16, local time.
 const at = (h: number, m: number) => new Date(2026, 9, 16, h, m);
@@ -33,5 +33,18 @@ describe("shouldNudge", () => {
   it("leaves the last hour to the closing reminder, and closed sales alone", () => {
     expect(shouldNudge({ ...base, sales_close_at: closeAt(12) }, at(11, 0))).toBe(false);
     expect(shouldNudge({ ...base, sales_close_at: closeAt(10) }, at(11, 0))).toBe(false);
+  });
+});
+
+describe("seasonGreeting", () => {
+  it("greets with the round's theme", () => {
+    expect(seasonGreeting("halloween")).toBe("🎃 Knask eller knep!");
+    expect(seasonGreeting("jul")).toBe("🎄 God jul!");
+  });
+
+  it("says nothing without a theme", () => {
+    expect(seasonGreeting("none")).toBeNull();
+    expect(seasonGreeting("auto")).toBeNull();
+    expect(seasonGreeting(null)).toBeNull();
   });
 });

@@ -7,6 +7,7 @@ import { prizeOfDraw } from "./phases";
 import { getCells, getDraws, getPrizes, getRound, normName } from "./repo";
 import { kr } from "./format";
 import { weekdayTime } from "./datetime";
+import { roundSeason, seasonInfo } from "./season";
 import type { Round, RoundStatus } from "./types";
 
 function webhookUrls(): string[] {
@@ -128,7 +129,22 @@ function opened(roundId: number): Message | null {
   const facts: [string, string][] = [];
   if (round.organizer_name) facts.push(["Arrangør", round.organizer_name]);
   if (prizes.length) facts.push(["Premier", prizes.map((p) => p.name || "ukjent premie").join(", ")]);
-  return { roundId, title: `🍷 Loddsalget er åpent – ${name(round)}`, facts, linkLabel: "Kjøp lodd" };
+  const greeting = seasonGreeting(round.theme);
+  return {
+    roundId,
+    title: `🍷 Loddsalget er åpent – ${name(round)}`,
+    lines: greeting ? [greeting] : undefined,
+    facts,
+    linkLabel: "Kjøp lodd",
+  };
+}
+
+/** The round's seasonal greeting as the buyer page shows it ("🎃 Knask eller knep!"), if it has a theme. */
+export function seasonGreeting(theme: string | null | undefined): string | null {
+  const season = roundSeason(theme);
+  if (!season) return null;
+  const { emoji, greeting } = seasonInfo(season);
+  return `${emoji} ${greeting}`;
 }
 
 function closingSoon(roundId: number): Message | null {
