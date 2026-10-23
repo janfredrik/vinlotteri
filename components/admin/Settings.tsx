@@ -50,10 +50,11 @@ export default function Settings({
     setErrors((e) => ({ ...e, [k]: undefined, form: undefined }));
   }
 
-  function validate() {
+  function validate(opening: boolean) {
     const e: typeof errors = {};
-    // Imported history may have no Vippsnummer; that shouldn't block correcting the title.
-    if (!locked && !form.vipps_number.trim()) e.vipps_number = "Fyll inn Vippsnummeret kjøperne skal betale til.";
+    // Imported history may have no Vippsnummer; that shouldn't block correcting the title. A draft
+    // saved without opening can wait for the new organiser's number too.
+    if (!locked && (opening || r.status !== "draft") && !form.vipps_number.trim()) e.vipps_number = "Fyll inn Vippsnummeret kjøperne skal betale til.";
     const lifts = fromLocalInput(form.restriction_lifts_at);
     const closes = fromLocalInput(form.sales_close_at);
     if (lifts && closes && Date.parse(lifts) > Date.parse(closes))
@@ -63,12 +64,30 @@ export default function Settings({
     return e;
   }
 
+  // The save button sits below the prizes, far from the fields: bring the first bad one into view.
+  function showFirstError() {
+    requestAnimationFrame(() => {
+      const label = document.querySelector("#round-settings [data-error]")?.closest("label");
+      if (!label) return;
+      const details = label.closest("details");
+      if (details) details.open = true;
+      label.scrollIntoView({ behavior: "smooth", block: "center" });
+      label.querySelector<HTMLElement>("input, select, textarea, button")?.focus({ preventScroll: true });
+    });
+  }
+
   async function save(ev: React.FormEvent) {
     ev.preventDefault();
     setSavedNote(null);
-    const e = validate();
+    const opening = r.status === "draft" && (ev.nativeEvent as SubmitEvent).submitter?.getAttribute("value") !== "draft";
+    const e = validate(opening);
+    if (Object.keys(e).length) {
+      const only = Object.keys(e).length === 1 ? Object.values(e)[0] : null;
+      setErrors({ ...e, form: only ?? "Sjekk feltene som er merket." });
+      showFirstError();
+      return;
+    }
     setErrors(e);
-    if (Object.keys(e).length) return;
 
     setBusy(true);
     try {
@@ -93,11 +112,11 @@ export default function Settings({
         theme: form.theme,
       });
       let opened = false;
-      if (r.status === "draft") {
+      if (opening) {
         await roundAction(r.id, { type: "status", status: "open" });
         opened = true;
       }
-      setSavedNote(opened ? "Lagret. Loddsalget er åpent!" : "Lagret.");
+      setSavedNote(opened ? "Lagret. Loddsalget er åpent!" : r.status === "draft" ? "Lagret. Salget er fortsatt ikke åpnet." : "Lagret.");
       reload();
     } catch (err) {
       setErrors({ form: (err as Error).message });
@@ -213,6 +232,11 @@ export default function Settings({
         <button type="submit" form="round-settings" disabled={busy || (locked && !fixable)} className={btn.primary}>
           {busy ? "Lagrer…" : r.status === "draft" ? "Lagre og åpne salget" : "Lagre"}
         </button>
+        {r.status === "draft" && (
+          <button type="submit" form="round-settings" value="draft" disabled={busy} className={btn.secondary}>
+            Lagre uten å åpne
+          </button>
+        )}
         <p aria-live="polite" className="text-sm">
           {savedNote && <span className="font-medium text-sage">{savedNote}</span>}
           {errors.form && <span className="font-medium text-wine">{errors.form}</span>}
@@ -245,7 +269,7 @@ function Field({
       </span>
       {children}
       {error ? (
-        <span className="mt-1 block text-sm font-medium text-wine">{error}</span>
+        <span data-error className="mt-1 block text-sm font-medium text-wine">{error}</span>
       ) : hint ? (
         <span className="mt-1 block text-xs text-plum/70">{hint}</span>
       ) : null}
