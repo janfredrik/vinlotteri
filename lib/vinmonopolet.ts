@@ -1,9 +1,16 @@
-/** Public product image (no API key). Non-existing numbers return a bottle silhouette. */
+export const POLET_IMAGE_SIZES = ["300x300-0", "1200x1200-0"] as const;
+
+/** Public product image (no API key) on Vinmonopolet itself. Non-existing numbers return a bottle silhouette. */
+export function poletImageSource(n: number, size: string): string {
+  return `https://bilder.vinmonopolet.no/cache/${size}/${n}-1.jpg`;
+}
+
+/** The product image as the app shows it: fetched through our own route, white backdrop removed. */
 export function vinmonopoletImage(varenummer: string | null | undefined, size = "300x300-0"): string | null {
   if (!varenummer) return null;
   const n = parseInt(String(varenummer).replace(/\D/g, ""), 10);
   if (!Number.isFinite(n) || n <= 0) return null;
-  return `https://bilder.vinmonopolet.no/cache/${size}/${n}-1.jpg`;
+  return `/api/polet-bilde/${n}?s=${size}`;
 }
 
 /** Product page on vinmonopolet.no, or null without a usable varenummer. */
@@ -14,7 +21,9 @@ export function vinmonopoletUrl(varenummer: string | null | undefined): string |
 
 /** A bigger rendition of a Vinmonopolet cache image; other URLs pass through untouched. */
 export function largeImage(url: string): string {
-  return url.replace(/(bilder\.vinmonopolet\.no\/cache\/)\d+x\d+-0\//, (_, host) => `${host}1200x1200-0/`);
+  return url
+    .replace(/(bilder\.vinmonopolet\.no\/cache\/)\d+x\d+-0\//, (_, host) => `${host}1200x1200-0/`)
+    .replace(/(\/api\/polet-bilde\/\d+\?s=)\d+x\d+-0/, "$11200x1200-0");
 }
 
 export interface ProductLookup {
