@@ -349,6 +349,13 @@ dialog::backdrop {
   --color-gold-soft: #f5d9a0;
   --color-sage: #3f7a55;
 }
+[data-season="halloween"] {
+  --color-wine: #5e2a7e;
+  --color-wine-dark: #421c5a;
+  --color-gold: #d9731a;
+  --color-gold-soft: #f6cf9f;
+  --color-sage: #4f6b25;
+}
 @keyframes season-fall {
   from { transform: translate3d(0, -10vh, 0) rotate(0deg); }
   50% { transform: translate3d(18px, 50vh, 0) rotate(160deg); }

@@ -1,7 +1,7 @@
 // Seasonal themes for the buyer page. A round stores "auto" (pick by the draw date), "none", or
 // one season by name; the page resolves that to a season and styles itself from it.
 
-export type Season = "jul" | "paske" | "17mai" | "sommer";
+export type Season = "jul" | "paske" | "17mai" | "sommer" | "halloween";
 export type ThemeSetting = "auto" | "none" | Season;
 
 export const SEASONS: { id: Season; label: string; emoji: string; greeting: string; particles: string[] }[] = [
@@ -9,6 +9,8 @@ export const SEASONS: { id: Season; label: string; emoji: string; greeting: stri
   { id: "paske", label: "Påske", emoji: "🐣", greeting: "God påske!", particles: ["🐣", "🌼", "🥚"] },
   { id: "17mai", label: "17. mai", emoji: "🇳🇴", greeting: "Hipp hipp hurra!", particles: ["🇳🇴", "🎈", "🌭"] },
   { id: "sommer", label: "Sommer", emoji: "☀️", greeting: "God sommer!", particles: ["🍓", "☀️", "🌸"] },
+  // Only by hand: seasonFor never picks it, so "auto" stays as it was.
+  { id: "halloween", label: "Halloween", emoji: "🎃", greeting: "Knask eller knep!", particles: ["🎃", "🦇", "👻"] },
 ];
 
 export const THEME_SETTINGS: ThemeSetting[] = ["auto", "none", ...SEASONS.map((s) => s.id)];
