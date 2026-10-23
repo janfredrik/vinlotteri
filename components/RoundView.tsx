@@ -19,7 +19,8 @@ import { PickYourPrize, WishList } from "./WishList";
 import RulesButton from "./RulesButton";
 import Countdown, { formatLeft, useNow } from "@/components/Countdown";
 import { SeasonDrift, SeasonGreeting } from "./SeasonDecor";
-import { resolveSeason } from "@/lib/season";
+import { HalloweenNight } from "./HalloweenNight";
+import { SEASON_OFF_COOKIE, roundSeason as seasonOf, seasonInfo, type Season } from "@/lib/season";
 import Receipt from "./Receipt";
 import { type LocalHold, readLocalHolds, reconcileHolds, writeLocalHolds } from "@/lib/localHolds";
 
@@ -59,11 +60,13 @@ export default function RoundView({
   roundId,
   initial,
   initialMe,
+  initialSeasonOff,
   neighbours,
 }: {
   roundId: number;
   initial: RoundState;
   initialMe: string | null;
+  initialSeasonOff: Season | null;
   neighbours: { prev: RoundLink | null; next: RoundLink | null };
 }) {
   const { state, refresh, connected } = useRoundState(roundId, initial);
@@ -462,11 +465,18 @@ export default function RoundView({
         ? "Loddsalget er stengt – trekningen kommer snart."
         : null;
 
-  const season = resolveSeason(round.theme, round.sales_close_at, new Date(state.now));
+  const roundSeason = seasonOf(round.theme);
+  const [seasonOff, setSeasonOff] = useState(initialSeasonOff);
+  const season = roundSeason && roundSeason !== seasonOff ? roundSeason : null;
+  const toggleSeason = () => {
+    const off = season ? roundSeason : null;
+    document.cookie = `${SEASON_OFF_COOKIE}=${off ?? ""}; path=/; samesite=lax; max-age=${off ? 60 * 60 * 24 * 120 : 0}`;
+    setSeasonOff(off);
+  };
 
   return (
     <div className="space-y-6" data-season={season ?? undefined}>
-      {season && <SeasonDrift season={season} />}
+      {season === "halloween" ? <HalloweenNight /> : season && <SeasonDrift season={season} />}
       <header className="flex items-start justify-between gap-3">
         <div>
           <RoundStepper current={round.title} {...neighbours} />
@@ -494,7 +504,12 @@ export default function RoundView({
             )}
           </p>
         </div>
-        <RulesButton connected={connected} beside={screenTime && <ScreenLink roundId={round.id} />}>
+        <RulesButton connected={connected} beside={
+            <>
+              {screenTime && <ScreenLink roundId={round.id} />}
+              {roundSeason && <SeasonToggle season={roundSeason} on={!!season} onToggle={toggleSeason} />}
+            </>
+          }>
           <ul className="mt-3 space-y-2 text-sm leading-snug text-plum/75 [&>li]:relative [&>li]:pl-4 [&>li]:before:absolute [&>li]:before:left-0 [&>li]:before:top-[0.5em] [&>li]:before:h-1.5 [&>li]:before:w-1.5 [&>li]:before:rounded-full [&>li]:before:bg-wine/40">
             <li>Kr {round.ticket_price},- per lodd.</li>
             {round.max_per_person > 0 && (
@@ -1015,6 +1030,30 @@ function prizeMeta(p: Prize | undefined): string {
 const SCREEN_LEAD_MS = 5 * 60_000;
 
 /** Opens the draw on the big screen in a new tab: a TV or projector in the room. Not on phones. */
+/** Turns the round's seasonal theme off (or back on) in this browser only. */
+function SeasonToggle({ season, on, onToggle }: { season: Season; on: boolean; onToggle: () => void }) {
+  const { emoji, label } = seasonInfo(season);
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={on}
+      aria-label={`${label}-tema`}
+      title={on ? `Slå av ${label.toLowerCase()}-temaet` : `Slå på ${label.toLowerCase()}-temaet`}
+      className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full border text-lg transition-colors ${
+        on ? "border-wine/40 bg-wine/10 hover:bg-wine/15" : "border-plum/15 hover:border-plum/30 hover:bg-plum/5"
+      }`}
+    >
+      <span aria-hidden="true" className={`transition-[filter,opacity] ${on ? "" : "opacity-45 grayscale"}`}>
+        {emoji}
+      </span>
+      {!on && (
+        <span aria-hidden="true" className="absolute h-px w-6 rotate-45 rounded-full bg-plum/45" />
+      )}
+    </button>
+  );
+}
+
 function ScreenLink({ roundId }: { roundId: number }) {
   return (
     <a

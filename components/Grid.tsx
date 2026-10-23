@@ -123,6 +123,7 @@ export default function Grid({
                     key={isNudged ? `${key}:${nudge.n}` : key}
                     type="button"
                     data-cell={coord}
+                    data-status={isWon || isSweep ? "won" : cell.status}
                     disabled={!clickable && !isLocked}
                     aria-disabled={isLocked || undefined}
                     onClick={() => {

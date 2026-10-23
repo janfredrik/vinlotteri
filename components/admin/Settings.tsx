@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { patchRound, roundAction } from "@/lib/adminApi";
 import { fromLocalInput, toLocalInput } from "@/lib/datetime";
 import type { AdminRoundState } from "@/lib/adminTypes";
-import { SEASONS, resolveSeason, seasonInfo } from "@/lib/season";
+import { SEASONS, roundSeason, seasonInfo } from "@/lib/season";
 import DatePicker from "./DatePicker";
 import { btn } from "./ui";
 
@@ -38,7 +38,7 @@ export default function Settings({
     notes: r.notes,
     restriction_lifts_at: toLocalInput(r.restriction_lifts_at),
     sales_close_at: toLocalInput(r.sales_close_at),
-    theme: r.theme || "auto",
+    theme: roundSeason(r.theme) ?? "none",
   });
   const [savedNote, setSavedNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -127,11 +127,8 @@ export default function Settings({
 
   const input = "mt-1 block w-full rounded-lg border border-plum/20 bg-white px-3 py-2 text-base disabled:bg-parchment/50 disabled:text-plum/60 sm:text-sm";
   const invalid = "border-wine ring-1 ring-wine";
-  const season = resolveSeason(form.theme, fromLocalInput(form.sales_close_at));
+  const season = roundSeason(form.theme);
   const themeSummary = season ? `${seasonInfo(season).emoji} ${seasonInfo(season).label.toLowerCase()}` : "uten tema";
-  const autoHint = season
-    ? `Automatisk blir det ${seasonInfo(season).label.toLowerCase()} for denne trekningsdatoen.`
-    : "Automatisk: jul, påske, 17. mai og sommer, etter trekningsdatoen. Ingen akkurat nå.";
 
   return (
     <>
@@ -205,11 +202,10 @@ export default function Settings({
               </Field>
               <Field
                 label="Sesongtema"
-                hint={form.theme === "auto" ? autoHint : form.theme === "none" ? "Kjøpesiden vises uten pynt." : "Pynter kjøpesiden med farger og litt drysset dekor."}
+                hint={season ? "Pynter kjøpesiden. Gjelder bare denne runden." : "Kjøpesiden vises uten pynt."}
                 wide
               >
                 <select className={input} value={form.theme} onChange={(e) => set("theme", e.target.value)}>
-                  <option value="auto">Automatisk etter dato</option>
                   <option value="none">Ingen</option>
                   {SEASONS.map((s) => (
                     <option key={s.id} value={s.id}>

@@ -20,7 +20,7 @@ export interface Round {
   carried_over: number;
   polet_cost: number | null;
   notes: string;
-  /** Seasonal look of the buyer page: "auto", "none" or a season (lib/season.ts). */
+  /** Seasonal look of the buyer page: "none" or a season (lib/season.ts). */
   theme: string;
 }
 

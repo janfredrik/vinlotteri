@@ -225,7 +225,7 @@ A warm cellar palette: two reds and a near-black plum carry the weight, gold mar
 
 **The Gold Means Yours Rule.** Gold marks what won, what is yours, or label print. It is not a general accent, not body text on cream, and never a fill for a whole Wrapped card.
 
-**The Season Stays Inside Rule.** Seasonal themes (jul, påske, 17. mai, sommer) re-tint wine, wine-dark, gold, gold-soft and sage only inside the round's own wrapper. The header and site chrome keep the house palette.
+**The Season Stays Inside Rule.** Seasonal themes are picked by hand per round, never by date. Jul and påske re-tint wine, wine-dark, gold, gold-soft and sage only inside the round's own wrapper; the header and site chrome keep the house palette. Halloween is the one exception: night falls over the whole page, chrome included, by inverting the palette tokens. Each visitor can turn a theme off beside Regler.
 
 ## Typography
 
@@ -346,6 +346,6 @@ Inner cards open with a serif headline, put a square-based illustration in the m
 - **Don't** use a pale-gold or gold field for a whole Wrapped card; gold is print only.
 - **Don't** put a tracked-caps eyebrow or kicker line above a heading.
 - **Don't** draw big-number-over-label stat tiles; draw squares or write the number into a sentence.
-- **Don't** let seasonal re-tints reach the header or site chrome.
+- **Don't** let seasonal re-tints reach the header or site chrome (halloween's night mode is the one sanctioned exception).
 - **Don't** use photos or emoji on Wrapped cards; the board is the illustration.
 - **Don't** restyle the official Vipps button.

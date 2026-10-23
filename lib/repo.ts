@@ -177,7 +177,7 @@ export function createRound(data: Partial<Round>): number {
       data.carried_over ?? 0,
       data.polet_cost ?? null,
       data.notes ?? "",
-      data.theme ?? "auto",
+      data.theme ?? "none",
     );
   const roundId = Number(res.lastInsertRowid);
   regenerateCells(roundId, gridSize);
@@ -265,8 +265,8 @@ export function createNextRound(
     vipps_number: handover.vipps_number?.trim() || (winner ? "" : prev.vipps_number),
     carried_over: money.videre,
     notes: "",
-    // Someone who turned the themes off keeps them off; a hand-picked season doesn't outlast its week.
-    theme: prev.theme === "none" ? "none" : "auto",
+    // A season is picked by hand for one round; it doesn't outlast its week.
+    theme: "none",
   });
   return roundId;
 }

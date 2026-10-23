@@ -21,7 +21,9 @@ function open(): DatabaseSync {
 function migrate(conn: DatabaseSync): void {
   const columns = (table: string) =>
     new Set((conn.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name));
-  if (!columns("rounds").has("theme")) conn.exec("ALTER TABLE rounds ADD COLUMN theme TEXT NOT NULL DEFAULT 'auto'");
+  if (!columns("rounds").has("theme")) conn.exec("ALTER TABLE rounds ADD COLUMN theme TEXT NOT NULL DEFAULT 'none'");
+  // "auto" (by date), 17. mai and sommer are gone; those rounds show no theme.
+  conn.exec("UPDATE rounds SET theme = 'none' WHERE theme NOT IN ('none', 'jul', 'paske', 'halloween')");
   if (!columns("cells").has("wishes")) conn.exec("ALTER TABLE cells ADD COLUMN wishes TEXT");
   if (!columns("draws").has("skipped")) conn.exec("ALTER TABLE draws ADD COLUMN skipped INTEGER NOT NULL DEFAULT 0");
 }
