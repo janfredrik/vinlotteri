@@ -845,7 +845,7 @@ function FinishScene({ st, hosts }: { st: RoundState; hosts: Record<string, Host
         f.hosted ? `${f.hosted + 1}. gang som arrangør` : "Første gang som arrangør",
         !f.wins
           ? f.lodd
-            ? `første seier etter ${f.lodd} lodd`
+            ? `første premie etter ${f.lodd} lodd`
             : "første lodd, og rett til topps"
           : f.firstPrizes
             ? `${f.firstPrizes + 1}. gang med 1. premie`
