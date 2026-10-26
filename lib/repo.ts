@@ -461,15 +461,18 @@ export function adminRenameBuyer(roundId: number, cellId: number, name: string, 
 }
 
 /** Every buyer name used across all rounds, most-used first - suggestions when correcting a name.
- *  Spellings of the same person collapse to the one they've used most. */
-export function knownBuyerNames(): string[] {
+ *  Spellings of the same person collapse to the one they've used most. With `since` (ISO), only
+ *  rounds that close (or, without a closing time, were created) from then on count. */
+export function knownBuyerNames(since: string | null = null): string[] {
   const rows = db
     .prepare(
-      `SELECT buyer_name_norm AS norm, buyer_name AS name, COUNT(*) AS n FROM cells
-       WHERE buyer_name_norm IS NOT NULL AND status IN ('held','sold')
-       GROUP BY buyer_name_norm, buyer_name ORDER BY n DESC`,
+      `SELECT c.buyer_name_norm AS norm, c.buyer_name AS name, COUNT(*) AS n
+       FROM cells c JOIN rounds r ON r.id = c.round_id
+       WHERE c.buyer_name_norm IS NOT NULL AND c.status IN ('held','sold')
+         AND (? IS NULL OR datetime(COALESCE(r.sales_close_at, r.created_at)) >= datetime(?))
+       GROUP BY c.buyer_name_norm, c.buyer_name ORDER BY n DESC`,
     )
-    .all() as { norm: string; name: string; n: number }[];
+    .all(since, since) as { norm: string; name: string; n: number }[];
   const best = new Map<string, { name: string; n: number }>();
   for (const r of rows) {
     const b = best.get(r.norm);
