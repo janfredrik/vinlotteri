@@ -4,7 +4,7 @@ import { computeMoney } from "./money";
 import { makeSeed, seededRolls } from "./draw";
 import { vinmonopoletImage } from "./vinmonopolet";
 import { parseWishes, prizeOfDraw, settleCheck, skippedWinners, unclaimedPrizes } from "./phases";
-import { atTime, isoWeek, nextWeekday } from "./datetime";
+import { atTime, isoWeekYear, nextWeekday, roundYear } from "./datetime";
 import { buildNameUses, type NameUse } from "./names";
 import { getLiveRoll } from "./liveRoll";
 import type {
@@ -71,11 +71,6 @@ export interface RoundSummary {
   unplaced: number;
   hasSuccessor: boolean;
   year: number;
-}
-
-/** The year a round ran. created_at is either SQLite's "2026-10-09 13:16:53" or the import's ISO string. */
-function roundYear(r: Round): number {
-  return Number(r.created_at.slice(0, 4));
 }
 
 /** Years with settled rounds, newest first. */
@@ -251,8 +246,9 @@ export function createNextRound(
   const friday = nextWeekday(5);
   const winner = draws.find((d) => d.rank === 1 && d.winner_name)?.winner_name ?? undefined;
 
+  const { week, year } = isoWeekYear(friday);
   const roundId = createRound({
-    title: `Uke ${isoWeek(friday)} – ${friday.getFullYear()}`,
+    title: `Uke ${week} – ${year}`,
     ticket_price: prev.ticket_price,
     max_per_person: prev.max_per_person,
     restriction_lifts_at: atTime(friday, 14, 30),

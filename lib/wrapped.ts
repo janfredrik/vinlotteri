@@ -1,6 +1,7 @@
 // "Årgang": the year in review (/wrapped/[year]). The tally is a pure function over loaded rounds,
 // so it can be tested without a database; loading and the release switch (/superadmin) sit at the bottom.
 import { db } from "./db";
+import { roundYear } from "./datetime";
 import { computeMoney } from "./money";
 import { normName } from "./format";
 import { getCells, getDraws, getPrizes, inDraw, listRounds } from "./repo";
@@ -229,10 +230,6 @@ export function buildPersonWrap(name: string, rounds: WrapRound[], earlier: Set<
 }
 
 /* ------------------------------------------------------------- loading --- */
-
-function roundYear(r: Round): number {
-  return Number(r.created_at.slice(0, 4));
-}
 
 const done = (r: Round) => r.status === "drawn" || r.status === "settled";
 

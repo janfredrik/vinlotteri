@@ -49,11 +49,26 @@ export function atTime(date: Date, hours: number, minutes: number): string {
   return d.toISOString();
 }
 
-/** ISO-8601 week number for a date. */
-export function isoWeek(date: Date): number {
+/** ISO-8601 week and the year it belongs to: Friday 1 Jan 2027 is week 53 of 2026. */
+export function isoWeekYear(date: Date): { week: number; year: number } {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
+  return { week: Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7), year: d.getUTCFullYear() };
+}
+
+/** ISO-8601 week number for a date. */
+export function isoWeek(date: Date): number {
+  return isoWeekYear(date).week;
+}
+
+/** The year a round belongs to in history, stats and Årgang: the year its sales close (the draw
+ *  Friday, local time), so a round set up in December for a January Friday counts for January.
+ *  Imported history and rounds without a closing time fall back to created_at, which is either
+ *  SQLite's "2026-10-09 13:16:53" or the import's ISO string. */
+export function roundYear(r: { created_at: string; sales_close_at: string | null }): number {
+  const closes = r.sales_close_at ? new Date(r.sales_close_at) : null;
+  if (closes && !Number.isNaN(closes.getTime())) return closes.getFullYear();
+  return Number(r.created_at.slice(0, 4));
 }

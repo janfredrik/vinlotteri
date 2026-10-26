@@ -3,6 +3,7 @@ import { computeMoney } from "@/lib/money";
 import { computeStats, getCells, getDraws, getPrizes, listRounds, personStats, type PersonStats } from "@/lib/repo";
 import { readMe } from "@/lib/me-cookie";
 import { normName } from "@/lib/format";
+import { roundYear } from "@/lib/datetime";
 import { MeSquare, YouChip } from "./MeSquare";
 import { Crown } from "./Grid";
 import Receipt, { KR_INT, kr, signed } from "./Receipt";
@@ -32,11 +33,6 @@ function competitionRanks(values: number[]): number[] {
     while (arr[j] === -1) j--;
     return arr[j];
   });
-}
-
-/** The year a round ran. created_at is either SQLite's "2026-10-09 13:16:53" or the import's ISO string. */
-function roundYear(r: Round): number {
-  return Number(r.created_at.slice(0, 4));
 }
 
 /** "Uke 36" within one year; the full "Uke 36 – 2025" once several years share the page. */
