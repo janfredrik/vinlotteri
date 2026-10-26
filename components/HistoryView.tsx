@@ -180,7 +180,7 @@ function YourNumbers({ name, stats }: { name: string; stats: PersonStats }) {
           <p className="max-w-2xl text-pretty text-plum/70">
             Du har kjøpt <Num>{lodd}</Num> lodd i <Num>{rounds}</Num> runde{rounds === 1 ? "" : "r"} og{" "}
             {wins === 0 ? (
-              <>venter fortsatt på første seier.</>
+              <>venter fortsatt på første premie.</>
             ) : (
               <>
                 vunnet <Num>{wins}</Num> premie{wins === 1 ? "" : "r"}
@@ -473,7 +473,7 @@ function HeatmapPanel({ stats }: { stats: LotteryStats }) {
                       key={col}
                       title={
                         s
-                          ? `Rute ${col}-${row}: ${wins} seier${wins === 1 ? "" : "e"} på ${s.sold} solgte lodd`
+                          ? `Rute ${col}-${row}: ${wins} premie${wins === 1 ? "" : "r"} på ${s.sold} solgte lodd`
                           : `Rute ${col}-${row}: aldri solgt`
                       }
                       className={`flex aspect-square items-center justify-center rounded-md text-xs font-semibold tabular-nums ${
@@ -495,7 +495,7 @@ function HeatmapPanel({ stats }: { stats: LotteryStats }) {
             className="h-2 flex-1 rounded-full"
             style={{ background: `linear-gradient(to right, ${heatColor(0)}, ${heatColor(1)})` }}
           />
-          <span className="tabular-nums">{maxWins} seire</span>
+          <span className="tabular-nums">{maxWins} premie{maxWins === 1 ? "" : "r"}</span>
         </div>
       </div>
 
@@ -505,7 +505,7 @@ function HeatmapPanel({ stats }: { stats: LotteryStats }) {
             <dt className="text-plum/60">Heldigst</dt>
             <dd className="text-right font-medium tabular-nums">
               {hottest.map(sq).join(", ")}{" "}
-              <span className="font-normal text-plum/60">· {maxWins} seire</span>
+              <span className="font-normal text-plum/60">· {maxWins} premie{maxWins === 1 ? "" : "r"}</span>
             </dd>
           </div>
         )}
@@ -538,12 +538,12 @@ interface BoardRow {
 function Leaderboards({ stats, me }: { stats: LotteryStats; me: string | null }) {
   const boards: { title: string; note?: string; rows: BoardRow[] }[] = [
     {
-      title: "Flest seire",
+      title: "Flest premier",
       rows: stats.topWinners.map((w) => ({
         key: w.name,
         name: w.name,
         sort: w.wins,
-        value: `${w.wins} seier${w.wins === 1 ? "" : "e"}`,
+        value: `${w.wins} premie${w.wins === 1 ? "" : "r"}`,
       })),
     },
     {
@@ -562,7 +562,7 @@ function Leaderboards({ stats, me }: { stats: LotteryStats; me: string | null })
     },
     {
       title: "Flaks-indeks",
-      note: "Seire delt på antall lodd. Bare de som har kjøpt minst 5 lodd totalt er med.",
+      note: "Premier delt på antall lodd. Bare de som har kjøpt minst 5 lodd totalt er med.",
       rows: stats.luckIndex.map((p) => ({
         key: p.name,
         name: p.name,
@@ -576,7 +576,7 @@ function Leaderboards({ stats, me }: { stats: LotteryStats; me: string | null })
     },
     {
       title: "Lengst tørke",
-      note: "Lodd kjøpt siden siste seier. For dem som aldri har vunnet, teller alle.",
+      note: "Lodd kjøpt siden siste premie. For dem som aldri har vunnet, teller alle.",
       rows: stats.drought.map((p) => ({
         key: p.name,
         name: p.name,

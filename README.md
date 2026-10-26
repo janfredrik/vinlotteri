@@ -48,7 +48,7 @@ Bildene viser anonyme demodata.
 - **Trekning** – fysisk terning (tast inn kolonne/rad) *eller* digital trekning med etterprøvbar seed.
 - **Pengestats & historikk** – inn fra sist + lodd solgt − kost på polet = videreført, regnes automatisk
   og føres videre til neste runde. Historikk-siden viser også statistikk på tvers av alle runder:
-  flest seire, hvem er med oftest, flaks-indeks (seiersprosent), hvem som er uheldigst, og et
+  flest premier, hvem er med oftest, flaks-indeks (premier per lodd), hvem som er uheldigst, og et
   heatmap over hvilke ruter som vinner mest.
 - **Én felles tilgangs-PIN** (`SITE_PIN`) låser hele siden. Alle som kommer inn kan også
   administrere – den som vinner arrangerer neste runde.
