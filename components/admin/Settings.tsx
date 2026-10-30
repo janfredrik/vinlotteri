@@ -160,18 +160,6 @@ export default function Settings({
                 <input className={input} value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="Uke 41 – 2026" />
               </Field>
               <fieldset disabled={locked} className="contents">
-              <Field
-                label="Maks-grensen oppheves"
-                hint={errors.restriction_lifts_at ? undefined : "Etter dette kan alle kjøpe så mange de vil. Vanligvis 30 min før trekning."}
-                error={errors.restriction_lifts_at}
-              >
-                <DateTimeInput
-                  label="Maks-grensen oppheves"
-                  invalid={!!errors.restriction_lifts_at}
-                  value={form.restriction_lifts_at}
-                  onChange={(v) => set("restriction_lifts_at", v)}
-                />
-              </Field>
               <Field label="Salget stenger" hint={form.sales_close_at ? undefined : "Tomt: salget stenges bare for hånd."}>
                 <DateTimeInput label="Salget stenger" clearable value={form.sales_close_at} onChange={(v) => set("sales_close_at", v)} />
               </Field>
@@ -183,7 +171,8 @@ export default function Settings({
             <summary className="cursor-pointer text-sm font-semibold text-plum">
               Flere valg
               <span className="ml-2 font-normal text-plum/70">
-                kr {form.ticket_price || 0} per lodd · maks {Number(form.max_per_person) || "ubegrenset"} · inn kr {form.carried_over || 0} · {themeSummary}
+                kr {form.ticket_price || 0} per lodd · maks {Number(form.max_per_person) || "ubegrenset"}
+                {Number(form.max_per_person) > 0 && form.restriction_lifts_at && ` til ${form.restriction_lifts_at.slice(11, 16)}`} · inn kr {form.carried_over || 0} · {themeSummary}
                 {form.notes.trim() && " · med beskjed"}
               </span>
             </summary>
@@ -193,6 +182,19 @@ export default function Settings({
               </Field>
               <Field label="Maks lodd per person" hint="0 betyr ingen grense." error={errors.max_per_person}>
                 <input type="number" min={0} className={`${input} tabular-nums`} value={form.max_per_person} onChange={(e) => set("max_per_person", e.target.value)} />
+              </Field>
+              <Field
+                label="Maks-grensen oppheves"
+                wide
+                hint={errors.restriction_lifts_at ? undefined : "Etter dette kan alle kjøpe så mange de vil. Vanligvis 30 min før trekning."}
+                error={errors.restriction_lifts_at}
+              >
+                <DateTimeInput
+                  label="Maks-grensen oppheves"
+                  invalid={!!errors.restriction_lifts_at}
+                  value={form.restriction_lifts_at}
+                  onChange={(v) => set("restriction_lifts_at", v)}
+                />
               </Field>
               <Field label="Inn fra forrige runde (kr)" hint="Fylles ut automatisk når forrige runde gjøres opp.">
                 <input type="number" className={`${input} tabular-nums`} value={form.carried_over} onChange={(e) => set("carried_over", e.target.value)} />
