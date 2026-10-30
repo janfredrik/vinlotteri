@@ -42,7 +42,6 @@ export interface GuideRound {
   organizer: string;
   vipps: string;
   salesCloseAt: string | null;
-  liftsAt?: string | null;
 }
 
 const STEPS = ["Vipps", "Premier", "Salg", "Trekning", "Oppgjør"] as const;
@@ -139,7 +138,6 @@ export default function AdminGuide({
                     {[
                       ["Tittel", round?.title || "Settes av seg selv"],
                       ["Salget stenger", round?.salesCloseAt ? weekdayTime(round.salesCloseAt) : "Satt opp på forhånd"],
-                      ["Maks-grensen oppheves", round?.liftsAt ? weekdayTime(round.liftsAt) : "30 min før stenging"],
                       ["Flere valg", "Fylt ut fra før"],
                     ].map(([label, value], i) => (
                       <Preset key={label} label={label} value={value} delay={1500 + i * 170} />

@@ -186,7 +186,6 @@ export default function AdminRound({ roundId }: { roundId: number }) {
           organizer: round.organizer_name,
           vipps: round.vipps_number,
           salesCloseAt: round.sales_close_at,
-          liftsAt: round.restriction_lifts_at,
         }}
       />
 
