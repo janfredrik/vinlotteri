@@ -296,9 +296,14 @@ function WeekCharts({ rows, withYear }: { rows: RoundRow[]; withYear: boolean })
             >
               <div className="relative flex flex-col justify-end" style={{ height: `${posShare * 100}%` }}>
                 {v >= 0 && (
-                  <>
+                  <span
+                    className={`relative block shrink-0 rounded-t-[3px] transition-colors duration-150 ${
+                      i === lastIdx ? "bg-wine" : "bg-wine/25 group-hover:bg-wine/60"
+                    }`}
+                    style={{ height: `${(h / (posShare * 100)) * 100}%`, minHeight: v > 0 ? 2 : 0 }}
+                  >
                     <span
-                      className={`pointer-events-none mb-1 text-center text-[10px] leading-none tabular-nums transition-opacity duration-150 sm:text-[11px] ${
+                      className={`pointer-events-none absolute inset-x-0 bottom-full mb-1 text-center text-[10px] leading-none tabular-nums transition-opacity duration-150 sm:text-[11px] ${
                         always
                           ? "font-semibold text-plum"
                           : "text-plum/60 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 max-sm:hidden"
@@ -306,13 +311,7 @@ function WeekCharts({ rows, withYear }: { rows: RoundRow[]; withYear: boolean })
                     >
                       {kr(Math.round(v))}
                     </span>
-                    <span
-                      className={`block rounded-t-[3px] transition-colors duration-150 ${
-                        i === lastIdx ? "bg-wine" : "bg-wine/25 group-hover:bg-wine/60"
-                      }`}
-                      style={{ height: `${(h / (posShare * 100)) * 100}%`, minHeight: v > 0 ? 2 : 0 }}
-                    />
-                  </>
+                  </span>
                 )}
               </div>
               <div className="border-t border-plum/25" />
@@ -356,21 +355,23 @@ function WeekCharts({ rows, withYear }: { rows: RoundRow[]; withYear: boolean })
               aria-label={`${label}: ${n} av ${size} ruter solgt`}
               className="group flex min-w-0 flex-1 flex-col justify-end rounded-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-wine"
             >
+              {/* The label floats above the bar so it never takes height from it. */}
               <span
-                className={`pointer-events-none mb-1 text-center text-[10px] leading-none tabular-nums transition-opacity duration-150 sm:text-[11px] ${
-                  i === lastIdx
-                    ? "font-semibold text-plum"
-                    : "text-plum/60 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 max-sm:hidden"
-                }`}
-              >
-                {n}
-              </span>
-              <span
-                className={`block rounded-t-[3px] transition-colors duration-150 ${
+                className={`relative block shrink-0 rounded-t-[3px] transition-colors duration-150 ${
                   full ? "bg-gold" : i === lastIdx ? "bg-gold/70" : "bg-gold-soft/80 group-hover:bg-gold/60"
                 }`}
                 style={{ height: `${(n / boardSize) * 100}%`, minHeight: n > 0 ? 2 : 0 }}
-              />
+              >
+                <span
+                  className={`pointer-events-none absolute inset-x-0 bottom-full mb-1 text-center text-[10px] leading-none tabular-nums transition-opacity duration-150 sm:text-[11px] ${
+                    i === lastIdx
+                      ? "font-semibold text-plum"
+                      : "text-plum/60 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 max-sm:hidden"
+                  }`}
+                >
+                  {n}
+                </span>
+              </span>
               <span className="border-t border-plum/25" />
             </Link>
           );
