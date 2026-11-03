@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import Link from "next/link";
 import type { PublicCell, RoundState } from "@/lib/types";
 import { useRoundState } from "@/lib/useRoundState";
-import { NAME_DISPLAY_MAX, formatPrice, gridLabel, normName } from "@/lib/format";
+import { NAME_DISPLAY_MAX, formatPhone, formatPrice, gridLabel, normName } from "@/lib/format";
 import { vinmonopoletImage } from "@/lib/vinmonopolet";
 import { weekdayTime } from "@/lib/datetime";
 import { ME_EVENT, chooseMe, useMe } from "@/lib/me";
@@ -213,7 +213,7 @@ export default function UncView({
       });
     if (round.sales_close_at) put(12, I, { v: `Salget stenger ${weekdayTime(round.sales_close_at)}.` });
     if (vipps?.number) {
-      const pretty = vipps.number.replace(/(\d{3})(\d{2})(\d{3})/, "$1 $2 $3");
+      const pretty = formatPhone(vipps.number);
       put(13, I, {
         v: `VIPPS: ${round.organizer_name ? `(${round.organizer_name}) ` : ""}${pretty}`,
         style: { fontSize: 20 },

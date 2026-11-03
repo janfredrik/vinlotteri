@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Script from "next/script";
 import type { VippsPresentation } from "@/lib/types";
+import { formatPhone } from "@/lib/format";
 
 export default function VippsCard({
   vipps,
@@ -16,7 +17,7 @@ export default function VippsCard({
   compact?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
-  const pretty = vipps.number.replace(/(\d{3})(\d{2})(\d{3})/, "$1 $2 $3");
+  const pretty = formatPhone(vipps.number);
 
   async function copy() {
     try {

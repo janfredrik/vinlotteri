@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { Prize, PublicCell, RoundState } from "@/lib/types";
 import type { RoundLink } from "@/lib/repo";
 import { useRoundState } from "@/lib/useRoundState";
-import { formatPrice } from "@/lib/format";
+import { formatPhone, formatPrice } from "@/lib/format";
 import { vinmonopoletImage } from "@/lib/vinmonopolet";
 import { PoletLink, PrizeDialog, PrizeThumb, type PrizeView } from "./PrizeViewer";
 import { NAME_DISPLAY_MAX, gridLabel, normName } from "@/lib/format";
@@ -800,7 +800,7 @@ export default function RoundView({
               <p className="text-sm text-plum/60">
                 Ikke betalt ennå? Vipps Kr {round.ticket_price},- per lodd til {round.organizer_name || "arrangør"},{" "}
                 <span className="whitespace-nowrap lining-nums tabular-nums text-plum/70">
-                  {vipps.number.replace(/(\d{3})(\d{2})(\d{3})/, "$1 $2 $3")}
+                  {formatPhone(vipps.number)}
                 </span>
                 .
               </p>

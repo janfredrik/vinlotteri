@@ -42,3 +42,9 @@ export function initials(name: string): string {
     .join("")
     .toLocaleUpperCase("nb-NO");
 }
+
+/** Phone numbers in pairs, the Norwegian main rule: "95882004" -> "95 88 20 04". Anything that
+ *  isn't eight digits is left as it is. */
+export function formatPhone(n: string): string {
+  return /^\d{8}$/.test(n) ? n.replace(/(\d{2})(?=\d)/g, "$1 ") : n;
+}
