@@ -352,7 +352,7 @@ export function holdCell(
     if (held >= round.max_per_person) {
       return {
         ok: false,
-        error: `Maks ${round.max_per_person} lodd per person nå. Grensen oppheves nærmere trekning.`,
+        error: `Maks ${round.max_per_person} lodd per person. Grensen oppheves nærmere trekning.`,
       };
     }
   }
