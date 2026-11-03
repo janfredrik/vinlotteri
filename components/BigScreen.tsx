@@ -11,7 +11,8 @@ import * as sound from "@/lib/drawSounds";
 import { Crown } from "./Grid";
 import { celebrateFrom, crownFrom } from "./Cheers";
 import { SkjermHalloweenDecor, batsFrom } from "./SkjermHalloween";
-import { roundSeason } from "@/lib/season";
+import { SkjermJulDecor, starsFrom } from "./JulDecor";
+import { roundSeason, type Season } from "@/lib/season";
 import type { HostFacts } from "@/lib/repo";
 import type { LiveOutcome, LiveRoll, Prize, PublicDraw, RoundState } from "@/lib/types";
 
@@ -85,7 +86,7 @@ export default function BigScreen({
   const { state, connected } = useRoundState(roundId, initial);
   const { round, prizes, cells, draws } = state;
   const size = round.grid_size;
-  const halloween = roundSeason(round.theme) === "halloween";
+  const season = roundSeason(round.theme);
   const drawOf = useCallback((rank: number) => draws.find((d) => d.rank === rank), [draws]);
 
   /* ---------------------------------------------------------------- the scene player --- */
@@ -227,7 +228,8 @@ export default function BigScreen({
       const timer = setTimeout(() => {
         const el = d?.col && d.row ? rootRef.current?.querySelector<HTMLElement>(`[data-cell="${d.col}-${d.row}"]`) : null;
         const scale = el ? Math.min(3, Math.max(1, el.getBoundingClientRect().width / 60)) : 1;
-        if (el && halloween) batsFrom(el, { scale });
+        if (el && season === "halloween") batsFrom(el, { scale });
+        if (el && season === "jul") starsFrom(el, { scale });
         if (current.rank === 1) {
           if (el) crownFrom(el, { scale });
           setTimeout(sound.fanfare, 650);
@@ -296,7 +298,7 @@ export default function BigScreen({
             : "Trekningen er ferdig";
 
   return (
-    <Stage rootRef={rootRef} connected={connected} title={round.title} roundId={roundId} halloween={halloween}>
+    <Stage rootRef={rootRef} connected={connected} title={round.title} roundId={roundId} season={season}>
       <div className="grid h-full grid-cols-[auto_minmax(0,1fr)] gap-[5cqh]">
         <StageGrid size={size} cells={cells} wins={wins} aim={aim} />
 
@@ -363,14 +365,14 @@ function Stage({
   connected,
   title,
   roundId,
-  halloween,
+  season,
   children,
 }: {
   rootRef: React.RefObject<HTMLDivElement | null>;
   connected: boolean;
   title: string;
   roundId: number;
-  halloween?: boolean;
+  season?: Season | null;
   children: React.ReactNode;
 }) {
   const [awake, setAwake] = useState(true);
@@ -474,11 +476,12 @@ function Stage({
   return (
     <div
       ref={rootRef}
-      data-skjerm-season={halloween ? "halloween" : undefined}
+      data-skjerm-season={season ?? undefined}
       className={`fixed inset-0 z-[35] flex items-center justify-center overflow-hidden bg-cream ${awake ? "" : "cursor-none"}`}
     >
       <div className="skjerm relative aspect-video w-[min(100vw,calc(100dvh*16/9))] [container-type:size]">
-        {halloween && <SkjermHalloweenDecor />}
+        {season === "halloween" && <SkjermHalloweenDecor />}
+        {season === "jul" && <SkjermJulDecor />}
         <div className="absolute inset-0 flex flex-col px-[5cqh] pb-[4.5cqh] pt-[3.2cqh]">
           <header className="flex h-[5cqh] shrink-0 items-center justify-between gap-[2cqh]">
             <p className="flex min-w-0 items-baseline gap-[1.6cqh]">

@@ -20,6 +20,8 @@ import RulesButton from "./RulesButton";
 import Countdown, { formatLeft, useNow } from "@/components/Countdown";
 import { SeasonDrift, SeasonGreeting } from "./SeasonDecor";
 import { HalloweenNight } from "./HalloweenNight";
+import { JulLights } from "./JulDecor";
+import Chances from "./Chances";
 import { SEASON_OFF_COOKIE, roundSeason as seasonOf, seasonInfo, type Season } from "@/lib/season";
 import Receipt from "./Receipt";
 import { type LocalHold, readLocalHolds, reconcileHolds, writeLocalHolds } from "@/lib/localHolds";
@@ -449,6 +451,15 @@ export default function RoundView({
       !draws.some((d) => d.winnerName && d.row === c.row && d.col === c.col),
   );
   const showWishes = myOpen.length > 0 && prizes.length > 1 && !finished;
+  // Your odds before the draw: every square in the draw on this device, the fresh holds included
+  // (their `mine` can lag a refresh behind).
+  const inDrawCount = cells.filter((c) => c.status === "sold" || c.status === "held").length;
+  const myInDraw = cells.filter(
+    (c) =>
+      (c.status === "sold" || c.status === "held") &&
+      (c.mine || holds.some((h) => h.row === c.row && h.col === c.col)),
+  ).length;
+  const showChances = myInDraw > 0 && prizes.length > 0 && !finished && !anyWinner;
   // You won while away and the organiser skipped you: you pick yourself.
   const mySkipped = draws.find(
     (d) => d.skipped && cells.some((c) => c.mine && c.row === d.row && c.col === d.col),
@@ -477,6 +488,7 @@ export default function RoundView({
   return (
     <div className="space-y-6" data-season={season ?? undefined}>
       {season === "halloween" ? <HalloweenNight /> : season && <SeasonDrift season={season} />}
+      {season === "jul" && <JulLights />}
       <header className="flex items-start justify-between gap-3">
         <div>
           <RoundStepper current={round.title} {...neighbours} />
@@ -654,6 +666,16 @@ export default function RoundView({
                 </button>
               )}
             </section>
+          )}
+
+          {showChances && (
+            <Chances
+              mine={myInDraw}
+              inDraw={inDrawCount}
+              total={totalCells}
+              prizes={prizes.length}
+              salesOpen={salesOpen}
+            />
           )}
 
           {showWishes && (
