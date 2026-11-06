@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Prize, PublicCell, RoundState } from "@/lib/types";
 import type { RoundLink } from "@/lib/repo";
 import { useRoundState } from "@/lib/useRoundState";
+import { useKeyboardArea } from "@/lib/useKeyboardArea";
 import { formatPhone, formatPrice } from "@/lib/format";
 import { vinmonopoletImage } from "@/lib/vinmonopolet";
 import { PoletLink, PrizeDialog, PrizeThumb, type PrizeView } from "./PrizeViewer";
@@ -89,6 +90,7 @@ export default function RoundView({
   const [toast, setToast] = useState<{ msg: string; tone: "ok" | "info" } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const kb = useKeyboardArea(dialogOpen);
 
   useEffect(() => {
     setHolds(readLocalHolds(roundId));
@@ -847,6 +849,8 @@ export default function RoundView({
         onClose={() => setDialogOpen(false)}
         onClick={(e) => e.target === dialogRef.current && !busy && setDialogOpen(false)}
         className="mx-auto mb-4 mt-auto w-[calc(100%-2rem)] max-w-md animate-pop rounded-2xl bg-cream p-0 text-plum shadow-[0_20px_50px_-12px_rgba(44,10,20,0.45)] sm:my-auto"
+        // iOS leaves the bottom sheet behind the keyboard: while typing, put it in the visible area.
+        style={kb ? { marginTop: kb.top + 8, marginBottom: "auto", maxHeight: kb.height - 16 } : undefined}
       >
         {dialogOpen && (
           <div className="p-5">
