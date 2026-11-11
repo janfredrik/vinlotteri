@@ -1,13 +1,14 @@
 // Brute-force brake for the shared PIN. Each IP gets a few free misses, then has to
 // wait (doubling per miss). A global cap on misses per day catches attacks spread
 // over many IPs, or forged IP headers from someone hitting the origin directly.
-// Tuned so a 4-digit PIN takes ~50 days on average to guess, 6 digits ~14 years.
+// The global cap is what bounds guessing (a 4-digit PIN takes ~50 days on average, 6 digits
+// ~14 years); the per-IP brake is forgotten quickly, since the whole office shares one IP.
 // In memory only: a container restart resets it, which an attacker can't trigger.
 
 export const FREE_MISSES = 3;
 const BASE_WAIT_MS = 5 * 60_000; // 5 min on the miss that uses up the free ones
 const MAX_WAIT_MS = 24 * 60 * 60_000; // never more than a day
-const FORGET_MS = 7 * 24 * 60 * 60_000; // an IP's misses are forgotten after a quiet week (must exceed MAX_WAIT_MS)
+const FORGET_MS = 60 * 60_000; // an IP's misses are forgotten an hour after its last miss or lockout, whichever ends later
 export const GLOBAL_MISSES = 100;
 const GLOBAL_WINDOW_MS = 24 * 60 * 60_000;
 
@@ -51,7 +52,7 @@ export class PinThrottle {
 
   private entry(ip: string, t: number): Entry | undefined {
     const e = this.ips.get(ip);
-    if (e && e.last < t - FORGET_MS) {
+    if (e && Math.max(e.last, e.until) < t - FORGET_MS) {
       this.ips.delete(ip);
       return undefined;
     }
@@ -59,7 +60,7 @@ export class PinThrottle {
   }
 
   private prune(t: number) {
-    for (const [ip, e] of this.ips) if (e.last < t - FORGET_MS && e.until < t) this.ips.delete(ip);
+    for (const [ip, e] of this.ips) if (Math.max(e.last, e.until) < t - FORGET_MS) this.ips.delete(ip);
   }
 }
 

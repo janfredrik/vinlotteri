@@ -41,11 +41,27 @@ describe("PinThrottle", () => {
     expect(th.wait("a")).toBe(0);
   });
 
-  it("forgets old misses after a quiet week", () => {
+  it("forgets old misses after a quiet hour", () => {
     const c = clock();
     const th = new PinThrottle(c.now);
     for (let i = 0; i < FREE_MISSES - 1; i++) th.miss("a");
-    c.advance(8 * 24 * 60 * 60_000);
+    c.advance(61 * 60_000);
+    th.miss("a");
+    expect(th.wait("a")).toBe(0);
+  });
+
+  it("starts the quiet hour when a lockout ends, not at the last miss", () => {
+    const c = clock();
+    const th = new PinThrottle(c.now);
+    for (let i = 0; i < FREE_MISSES + 3; i++) {
+      c.advance(th.wait("a") * 1000);
+      th.miss("a");
+    }
+    expect(th.wait("a")).toBe(2400); // locked 40 min
+    c.advance(90 * 60_000); // lock over, but only 50 min quiet since it ended
+    th.miss("a");
+    expect(th.wait("a")).toBe(4800); // still remembered, keeps doubling
+    c.advance((80 + 61) * 60_000); // lock over and a quiet hour after it
     th.miss("a");
     expect(th.wait("a")).toBe(0);
   });
