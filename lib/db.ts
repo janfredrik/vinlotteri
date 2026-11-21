@@ -25,6 +25,7 @@ function migrate(conn: DatabaseSync): void {
   // "auto" (by date), 17. mai and sommer are gone; those rounds show no theme.
   conn.exec("UPDATE rounds SET theme = 'none' WHERE theme NOT IN ('none', 'jul', 'paske', 'halloween')");
   if (!columns("cells").has("wishes")) conn.exec("ALTER TABLE cells ADD COLUMN wishes TEXT");
+  if (!columns("audit_log").has("ip")) conn.exec("ALTER TABLE audit_log ADD COLUMN ip TEXT");
   if (!columns("draws").has("skipped")) conn.exec("ALTER TABLE draws ADD COLUMN skipped INTEGER NOT NULL DEFAULT 0");
 }
 

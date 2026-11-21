@@ -97,6 +97,12 @@ export default function AdminHome() {
 
       {past.length > 0 && <PastYears latest={past} years={years} historyEdit={historyEdit} />}
 
+      <p className="text-center text-sm">
+        <Link href="/admin/logg" className="text-plum/70 underline-offset-4 hover:text-wine hover:underline">
+          Endringslogg
+        </Link>
+      </p>
+
       <a
         href="https://github.com/janfredrik/vinlotteri"
         aria-label="Kildekoden på GitHub"

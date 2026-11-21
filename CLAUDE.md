@@ -8,7 +8,7 @@ Kollegialt vinlotteri som erstatter Excel-arket. Se `PRODUCT.md` for brukere og 
 
 - `npm run dev` starter på port 3000. Uten `SITE_PIN` i `.env` er siden åpen.
 - `npm run seed` lager en demorunde. Demodataene er anonymisert.
-- `npm test` kjører Vitest-testene (`lib/*.test.ts`), `npm run typecheck` sjekker typer. Det finnes ingen lint. Sjekk UI-endringer i nettleseren.
+- `npm test` kjører Vitest-testene (`lib/*.test.ts`), `npm run typecheck` sjekker typer. `npm run test:e2e` kjører Playwright-testen av kjøpsflyten (`e2e/`) mot en bygg på port 3100 med egen database i `.e2e/data`. Det finnes ingen lint. Sjekk UI-endringer i nettleseren.
 - Produksjon er Docker (Unraid) bak SWAG. GitHub Actions bygger imaget ved hver push til `main`.
 
 ## Domene
@@ -27,4 +27,5 @@ Kollegialt vinlotteri som erstatter Excel-arket. Se `PRODUCT.md` for brukere og 
 - Reservasjoner utløper ikke. De varer til de betales eller en arrangør frigjør dem i admin.
 - I `components/Grid.tsx`: ikke legg Tailwind-bakgrunn/tekstfarge oppå `STATUS_STYLES`. Velg ett komplett fargesett, ellers kan stilarkrekkefølgen gi uleselige kombinasjoner.
 - Repoet er offentlig: ikke committ ekte navn, Vippsnumre, databaser eller `scripts/loddark-*.json`.
+- Nye admin-handlinger skal logges med `logAudit()` (`lib/audit.ts`) med profilnavn (`readMe()`) og IP (`requestIp()`). Bomskudd i trekningen og `roll` lagres ikke og logges ikke.
 - Ved testing mot en gjenbrukt port: sjekk at serverloggen ikke viser EADDRINUSE, ellers svarer en gammel server.

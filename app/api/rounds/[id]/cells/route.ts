@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   buildRoundState,
   confirmCell,
+  getCells,
   getRound,
   holdCell,
   myCellIds,
@@ -17,7 +18,9 @@ import { onStatusChange } from "@/lib/notify";
 import { notifyRound } from "@/lib/events";
 import { readHoldIds, writeHoldIds } from "@/lib/holds-cookie";
 import { readMe } from "@/lib/me-cookie";
+import { requestIp } from "@/lib/request-ip";
 import { num } from "@/lib/http";
+import { logAudit, square, squareWithBuyer } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +44,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (row == null || col == null) return NextResponse.json({ error: "Mangler rute." }, { status: 400 });
     const res = holdCell(roundId, row, col, String(body.name ?? ""), restrictionActive(round));
     if (!res.ok) return NextResponse.json({ error: res.error }, { status: 409 });
+    const name = String(body.name ?? "").trim();
+    logAudit({ roundId, actor: (await readMe()) ?? name, ip: await requestIp(), action: "hold", summary: `${name} reserverte ${square({ row, col })}` });
     notifyRound(roundId);
     const out = NextResponse.json({ ok: true, cellId: res.cellId });
     writeHoldIds(out, [...holdIds, res.cellId!]);
@@ -51,11 +56,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const cellId = num(body.cellId);
     if (cellId == null || !holdIds.includes(cellId))
       return NextResponse.json({ error: "Fant ikke reservasjonen din." }, { status: 409 });
+    const cell = getCells(roundId).find((c) => c.id === cellId);
     if (!confirmCell(roundId, cellId))
       return NextResponse.json(
         { error: "Fant ikke reservasjonen – ruten kan være frigitt av arrangør." },
         { status: 409 },
       );
+    if (cell)
+      logAudit({
+        roundId,
+        actor: (await readMe()) ?? cell.buyer_name,
+        ip: await requestIp(),
+        action: "confirm",
+        summary: `${cell.buyer_name ?? "Kjøperen"} bekreftet betaling for ${square(cell)}`,
+      });
     notifyRound(roundId);
     return NextResponse.json({ ok: true });
   }
@@ -68,7 +82,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         { status: 409 },
       );
     if (cellId != null && holdIds.includes(cellId)) {
-      releaseCell(roundId, cellId);
+      const cell = getCells(roundId).find((c) => c.id === cellId);
+      if (releaseCell(roundId, cellId) && cell)
+        logAudit({ roundId, actor: (await readMe()) ?? cell.buyer_name, ip: await requestIp(), action: "release", summary: `Kjøperen ga fra seg ${squareWithBuyer(cell)}` });
       notifyRound(roundId);
       const out = NextResponse.json({ ok: true });
       writeHoldIds(out, holdIds.filter((x) => x !== cellId));

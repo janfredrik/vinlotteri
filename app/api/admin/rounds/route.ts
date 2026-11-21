@@ -3,6 +3,9 @@ import { guardAccess } from "@/lib/http";
 import { historyEdit } from "@/lib/settings";
 import { createRound, listRoundSummaries, settledYears } from "@/lib/repo";
 import { notifyRound } from "@/lib/events";
+import { logAudit } from "@/lib/audit";
+import { readMe } from "@/lib/me-cookie";
+import { requestIp } from "@/lib/request-ip";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +24,7 @@ export async function POST(req: Request) {
   if (denied) return denied;
   const body = await req.json().catch(() => ({}));
   const id = createRound(body ?? {});
+  logAudit({ roundId: id, actor: await readMe(), ip: await requestIp(), action: "create", summary: "Opprettet runden" });
   notifyRound(id);
   return NextResponse.json({ ok: true, id });
 }

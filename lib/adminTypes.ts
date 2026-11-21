@@ -1,3 +1,4 @@
+import type { AuditEntry } from "./audit";
 import type { Cell, Draw, MoneySummary, Prize, Round, VippsPresentation } from "./types";
 
 export interface AdminRoundState {
@@ -15,5 +16,7 @@ export interface AdminRoundState {
   knownNames: string[];
   /** History editing is on (/superadmin): winning squares of settled rounds can be corrected. */
   historyEdit: boolean;
+  /** Endringsloggen for runden, nyeste først. */
+  audit: AuditEntry[];
   now: string;
 }

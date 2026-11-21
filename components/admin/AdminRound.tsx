@@ -13,6 +13,7 @@ import Sales from "./Sales";
 import DrawPanel from "./DrawPanel";
 import Settle from "./Settle";
 import Handover from "./Handover";
+import AuditLog from "./AuditLog";
 import AdminGuide, { useAdminGuide } from "./AdminGuide";
 import { ConfirmButton, IconCheck, IconChevron, IconExternal, IconHelp, btn, useAction, ErrorNote } from "./ui";
 
@@ -286,6 +287,8 @@ export default function AdminRound({ roundId }: { roundId: number }) {
           );
         })}
       </div>
+
+      <AuditLog entries={state.audit ?? []} />
 
       {!locked && <DangerZone roundId={roundId} onDeleted={() => router.push("/admin")} />}
     </div>
