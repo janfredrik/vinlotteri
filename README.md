@@ -53,7 +53,7 @@ Bildene viser anonyme demodata.
 - **Kjøp uten innlogging.** Velg rute og skriv navn eller initialer. Legg til flere ruter og betal samlet for alle.
 - **Profil uten passord.** Navnet du kjøper med blir profilen din på enheten. Velg deg selv på en annen enhet, så er rutene dine merket der også, vinnerlistene viser «Deg!» og historikken viser dine tall. Det er en snarvei, ikke sikkerhet: «Jeg har betalt» og «Angre» virker bare på enheten som reserverte ruta.
 - **Vipps.** QR-kode og «Vipps meg»-lenke lages fra arrangørens personlige Vippsnummer, som byttes hver runde.
-- **Premier fra Vinmonopolet.** Lim inn URL eller varenummer, så hentes bilde (og navn med API-nøkkel). Eller lim inn et skjermbilde fra vinmonopolet.no og la en vision-modell lese av navn, varenummer, pris og volum.
+- **Premier fra Vinmonopolet.** Lim inn URL eller varenummer, så hentes bilde (og navn med API-nøkkel).
 - **Trekning.** Fysisk terning der arrangøren taster inn kolonne og rad, eller digital trekning med etterprøvbar seed. Storskjermen (`/runde/<id>/skjerm`) følger hver terning live på TV eller prosjektor.
 - **Regnskap og historikk.** Potten regnes ut og føres videre til neste runde. Historikken viser flest premier, hvem som er med oftest, flaks-indeks, hvem som er uheldigst og et heatmap over vinnerruter.
 - **Årgang.** Året oppsummert som en story, sluppet av superadmin.
@@ -104,7 +104,6 @@ Alt settes i `.env`. Se [`.env.example`](.env.example) for kommentarer.
 | `APP_URL` | Offentlig adresse, brukt i lenker, QR-plakat og Teams-meldinger. |
 | `SUPERADMIN_PIN` | Egen PIN for `/superadmin`. Tom betyr at siden er stengt. |
 | `VINMONOPOLET_API_KEY` | Gratis nøkkel fra [api.vinmonopolet.no](https://api.vinmonopolet.no) som fyller inn premienavnet. Bilder virker uten. |
-| `OCR_API_KEY` | Nøkkel til en OpenAI-kompatibel vision-modell som leser skjermbilder av premier. `OCR_BASE_URL` og `OCR_MODEL` er valgfrie (standard OpenRouter). |
 | `TEAMS_WEBHOOK_URL` | Én eller flere kommaseparerte Teams-webhooks. |
 | `TZ` | Tidssone, standard `Europe/Oslo`. |
 | `DEV_ORIGINS` | Bare for utvikling: IP-er som får bruke `npm run dev` fra andre enheter. |
@@ -210,4 +209,4 @@ Penger og premievalg endres ikke. Mangler runden kost på polet, låses den til 
 | `scripts/` | Seed og import fra Excel |
 | `e2e/` | Playwright-test av kjøpsflyten |
 
-Eksterne tjenester: Vinmonopolets offentlige bilde-URL-er (alltid), og valgfritt Vinmonopolets API, en vision-modell for skjermbilder og Teams-webhooks. Se [`PRODUCT.md`](PRODUCT.md) for brukere og prinsipper og [`DESIGN.md`](DESIGN.md) for det visuelle.
+Eksterne tjenester: Vinmonopolets offentlige bilde-URL-er (alltid), og valgfritt Vinmonopolets API og Teams-webhooks. Se [`PRODUCT.md`](PRODUCT.md) for brukere og prinsipper og [`DESIGN.md`](DESIGN.md) for det visuelle.

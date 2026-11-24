@@ -37,7 +37,6 @@ export default defineConfig({
       SUPERADMIN_PIN: "",
       TEAMS_WEBHOOK_URL: "",
       VINMONOPOLET_API_KEY: "",
-      OCR_API_KEY: "",
       APP_URL: `http://localhost:${PORT}`,
       TZ: "Europe/Oslo",
     },

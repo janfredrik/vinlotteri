@@ -42,19 +42,6 @@ export async function uploadPrizeImage(file: Blob): Promise<{ id: number; url: s
   return { id: data.id, url: data.url };
 }
 
-export interface OcrResult {
-  enabled?: boolean;
-  name?: string | null;
-  varenummer?: string | null;
-  price?: number | null;
-  volume?: string | null;
-  category?: string | null;
-}
-
-export function ocrPrizeImage(imageId: number): Promise<OcrResult> {
-  return api("/api/admin/prize-ocr", { method: "POST", body: JSON.stringify({ imageId }) });
-}
-
 export function imageFrom(dt: DataTransfer | null): File | null {
   return Array.from(dt?.files ?? []).find((f) => f.type.startsWith("image/")) ?? null;
 }

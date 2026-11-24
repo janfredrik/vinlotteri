@@ -13,9 +13,6 @@ services:
       SITE_PIN: "${SITE_PIN:?set SITE_PIN in .env (or SITE_PIN=off to disable the gate)}"
       APP_URL: "${APP_URL:-http://localhost:3009}"
       VINMONOPOLET_API_KEY: "${VINMONOPOLET_API_KEY:-}"
-      OCR_API_KEY: "${OCR_API_KEY:-}"
-      OCR_BASE_URL: "${OCR_BASE_URL:-}"
-      OCR_MODEL: "${OCR_MODEL:-}"
       TEAMS_WEBHOOK_URL: "${TEAMS_WEBHOOK_URL:-}"
       # Own PIN for /superadmin (Årgang, names, history correction). Blank = closed.
       SUPERADMIN_PIN: "${SUPERADMIN_PIN:-}"

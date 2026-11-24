@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
-import { api, imageFrom, ocrPrizeImage, roundAction, uploadPrizeImage } from "@/lib/adminApi";
+import { api, imageFrom, roundAction, uploadPrizeImage } from "@/lib/adminApi";
 import { formatPrice } from "@/lib/format";
 import { varenummerFromUrl, vinmonopoletImage } from "@/lib/vinmonopolet";
 import type { AdminRoundState } from "@/lib/adminTypes";
@@ -28,13 +28,13 @@ export default function Prizes({
 }) {
   const roundId = state.round.id;
   const [draft, setDraft] = useState(EMPTY);
-  // Mirror of `draft` that async code (scan → lookup → save) can read without waiting for a render.
+  // Mirror of `draft` that async code (lookup → save) can read without waiting for a render.
   const draftRef = useRef(EMPTY);
   function patch(fn: (d: Draft) => Draft) {
     draftRef.current = fn(draftRef.current);
     setDraft(draftRef.current);
   }
-  // A scanned prize is added straight away; the form then keeps showing it, and edits update that prize.
+  // A fetched prize is added straight away; the form then keeps showing it, and edits update that prize.
   const [addedId, setAddedId] = useState<number | null>(null);
   const addedRef = useRef<number | null>(null);
   const [saved, setSaved] = useState("");
@@ -51,15 +51,14 @@ export default function Prizes({
   // Once added, the form shows a receipt of the prize; the fields only come back to fix something.
   const [fixing, setFixing] = useState(false);
   // Where the added prize's details came from, so the receipt can say how much to trust them.
-  const [source, setSource] = useState<null | "vinmonopolet" | "bilde">(null);
+  const [source, setSource] = useState<null | "vinmonopolet">(null);
   const [busy, setBusy] = useState(false);
   // The varenummer last looked up, so Hent can stand out while a typed number is still unfetched.
   const [fetchedNr, setFetchedNr] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [over, setOver] = useState(false);
-  // Scan animation: which step is running, the local preview of the screenshot, and which fields just got filled.
-  const [scan, setScan] = useState<null | "upload" | "read" | "lookup">(null);
-  const [scanUrl, setScanUrl] = useState<string | null>(null);
+  // Lookup animation: whether Vinmonopolet is being asked, and which fields just got filled.
+  const [scan, setScan] = useState<null | "lookup">(null);
   const [flash, setFlash] = useState<string[]>([]);
 
   function flashFields(keys: string[]) {
@@ -70,56 +69,23 @@ export default function Prizes({
   const fx = (key: string) => (scan ? "animate-shimmer" : flash.includes(key) ? "animate-fill" : "");
   const fxStyle = (key: string) => ({ animationDelay: `${Math.max(flash.indexOf(key), 0) * 140}ms` });
 
+  /** An own photo of the prize (dropped or picked): it only replaces the picture in the form. */
   async function takeImage(file: File) {
     setMsg(null);
-    if (addedRef.current != null) {
-      // The previous prize is already in the list; save any last edits and start a fresh one.
-      if (JSON.stringify(draftRef.current) !== savedRef.current) await commit().catch(() => {});
-      setAdded(null);
-      patch(() => EMPTY);
-    }
-    setScan("upload");
-    setScanUrl(URL.createObjectURL(file));
+    setBusy(true);
     try {
       const img = await uploadPrizeImage(file);
       patch((x) => ({ ...x, image_url: img.url }));
-      setBusy(true);
-      setScan("read");
-      const o = await ocrPrizeImage(img.id);
-      if (!o.enabled) return setMsg(null);
-      // Only fill what the screenshot gave; keep anything already typed.
-      patch((x) => ({
-        ...x,
-        name: o.name ?? x.name,
-        varenummer: o.varenummer ?? x.varenummer,
-        price: o.price != null ? String(o.price).replace(".", ",") : x.price,
-        volume: o.volume ?? x.volume,
-        category: o.category ?? x.category,
-      }));
-      setMsg("Fylte ut fra bildet – sjekk at det stemmer.");
-      const got = (["varenummer", "name", "price", "volume", "category"] as const).filter((k) => o[k] != null);
-      setScan(null);
-      flashFields(got);
-      if (o.varenummer) {
-        setScan("lookup");
-        await lookup(o.varenummer, true);
-        setScan(null);
-      }
-      if (draftRef.current.name.trim() || draftRef.current.varenummer.trim()) {
-        await commit();
-        setSource("bilde");
-        setMsg(null);
-      }
+      // On an already added prize the picture is saved straight away.
+      if (addedRef.current != null) await commit();
     } catch (e) {
       setMsg((e as Error).message);
     } finally {
       setBusy(false);
-      setScan(null);
-      setScanUrl((u) => (u && URL.revokeObjectURL(u), null));
     }
   }
 
-  /** A pasted product link or varenummer: fill the form from Vinmonopolet and add it, like a screenshot. */
+  /** A pasted product link or varenummer: fill the form from Vinmonopolet and add it. */
   async function takeProduct(varenummer: string) {
     setMsg(null);
     if (addedRef.current != null) {
@@ -144,23 +110,16 @@ export default function Prizes({
     }
   }
 
-  const takeRef = useRef({ image: takeImage, product: takeProduct });
+  const takeRef = useRef(takeProduct);
   useEffect(() => {
-    takeRef.current = { image: takeImage, product: takeProduct };
+    takeRef.current = takeProduct;
   });
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Ctrl+V anywhere on the page (unless a row is being edited, which claims the paste itself).
-  // So is a product link or a varenummer, unless it's pasted into a text field outside this form.
+  // Ctrl+V of a product link or a varenummer anywhere on the page, unless it's pasted into a text field outside this form.
   useEffect(() => {
     if (locked) return;
     const onPaste = (e: ClipboardEvent) => {
-      const f = imageFrom(e.clipboardData);
-      if (f) {
-        e.preventDefault();
-        void takeRef.current.image(f);
-        return;
-      }
       const text = e.clipboardData?.getData("text") ?? "";
       const t = e.target as HTMLElement | null;
       const inField = !!t?.closest("input, textarea, [contenteditable]");
@@ -170,15 +129,14 @@ export default function Prizes({
       const nr = link ?? bare;
       if (!nr || (inField && !formRef.current?.contains(t))) return;
       e.preventDefault();
-      void takeRef.current.product(nr);
+      void takeRef.current(nr);
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locked]);
 
-  /** `fromScreenshot`: the number came from OCR, so Vinmonopolet's own photo replaces the uploaded screenshot. */
-  async function lookup(varenummer = draft.varenummer, fromScreenshot = false): Promise<string[]> {
+  async function lookup(varenummer = draft.varenummer): Promise<string[]> {
     varenummer = varenummerFromUrl(varenummer) ?? varenummer;
     if (!varenummer.trim()) return [];
     setBusy(true);
@@ -188,7 +146,6 @@ export default function Prizes({
       patch((x) => ({
         ...x,
         varenummer,
-        image_url: fromScreenshot ? "" : x.image_url,
         name: d.name ?? x.name,
         price: d.price != null ? String(d.price).replace(".", ",") : x.price,
         volume: d.volume ?? x.volume,
@@ -390,56 +347,35 @@ export default function Prizes({
               </span>
             )}
           </div>
-          {scan && scanUrl ? (
-            <div className="mt-3 flex items-center gap-4 rounded-lg bg-cream p-3">
-              <div className="scan-frame relative h-28 w-24 shrink-0 overflow-hidden rounded-md bg-white">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={scanUrl} alt="" className="h-full w-full object-contain" />
-                <span className="scan-line" />
-                <span className="scan-corner left-1 top-1 border-l-2 border-t-2" />
-                <span className="scan-corner right-1 top-1 border-r-2 border-t-2" />
-                <span className="scan-corner bottom-1 left-1 border-b-2 border-l-2" />
-                <span className="scan-corner bottom-1 right-1 border-b-2 border-r-2" />
-              </div>
-              <div className="text-sm text-plum" aria-live="polite">
-                <p className="font-display text-base font-semibold">
-                  {scan === "upload" ? "Laster opp bildet" : scan === "read" ? "Leser teksten i bildet" : "Henter fra Vinmonopolet"}
-                  <span className="dots" />
-                </p>
-                <p className="mt-1 text-xs text-plum/70">Navn, pris og varenummer dukker opp i feltene under.</p>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-              <p className={over ? "font-medium text-wine" : "text-plum/80"}>
-                {over ? (
-                  "Slipp bildet her"
-                ) : (
-                  <>
-                    {receipt ? "Lim inn neste lenke eller varenummer" : "Lim inn lenke eller varenummer fra Vinmonopolet"}
-                    <kbd className="ml-2 hidden rounded border border-plum/20 bg-cream px-1.5 py-0.5 font-sans text-xs text-plum/70 sm:inline">
-                      {pasteKey}
-                    </kbd>
-                  </>
-                )}
-              </p>
-              {!over && (
-                <label className="cursor-pointer text-xs text-plum/70 underline underline-offset-4 hover:text-wine has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-wine">
-                  Har du bare et bilde? Velg bilde
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="sr-only"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      e.target.value = ""; // allow picking the same file again
-                      if (f) void takeImage(f);
-                    }}
-                  />
-                </label>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+            <p className={over ? "font-medium text-wine" : "text-plum/80"}>
+              {over ? (
+                "Slipp bildet her"
+              ) : (
+                <>
+                  {receipt ? "Lim inn neste lenke eller varenummer" : "Lim inn lenke eller varenummer fra Vinmonopolet"}
+                  <kbd className="ml-2 hidden rounded border border-plum/20 bg-cream px-1.5 py-0.5 font-sans text-xs text-plum/70 sm:inline">
+                    {pasteKey}
+                  </kbd>
+                </>
               )}
-            </div>
-          )}
+            </p>
+            {!over && (
+              <label className="cursor-pointer text-xs text-plum/70 underline underline-offset-4 hover:text-wine has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-wine">
+                Last opp eget bilde
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = ""; // allow picking the same file again
+                    if (f) void takeImage(f);
+                  }}
+                />
+              </label>
+            )}
+          </div>
           {receipt ? (
             <div className="animate-receipt mt-4 flex gap-4 rounded-lg bg-cream p-3 sm:p-4" aria-live="polite">
               <div className="flex h-28 w-20 shrink-0 items-center justify-center rounded-md bg-white p-1.5 sm:h-32 sm:w-24">
@@ -470,8 +406,6 @@ export default function Prizes({
                       Fyll inn
                     </button>
                   </p>
-                ) : source === "bilde" ? (
-                  <p className="mt-2 text-xs text-plum/70">Lest fra bildet. Se over at det stemmer.</p>
                 ) : source === "vinmonopolet" ? (
                   <p className="mt-2 text-xs text-plum/70 tabular-nums">Hentet fra Vinmonopolet, varenr. {draft.varenummer}</p>
                 ) : null}
@@ -638,45 +572,18 @@ function PrizeRow({
 
   const [reading, setReading] = useState(false);
 
-  /** A new photo, or a screenshot of the prize: whatever the screenshot shows replaces the fields. */
+  /** A new photo of the prize. */
   async function takeImage(file: File) {
     setError(null);
+    setReading(true);
     try {
-      const up = await uploadPrizeImage(file);
-      setImage(up.url);
-      setReading(true);
-      const o = await ocrPrizeImage(up.id);
-      if (!o.enabled) return;
-      setF((x) => ({
-        name: o.name ?? x.name,
-        price: o.price != null ? String(o.price).replace(".", ",") : x.price,
-        volume: o.volume ?? x.volume,
-        varenummer: o.varenummer ?? x.varenummer,
-        category: o.category ?? x.category,
-      }));
-      // Vinmonopolet's own photo beats a screenshot of the whole product page.
-      if (o.varenummer) setImage(vinmonopoletImage(o.varenummer) ?? up.url);
+      setImage((await uploadPrizeImage(file)).url);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setReading(false);
     }
   }
-
-  // While editing, this row claims Ctrl+V (capture phase) so the "new prize" box doesn't also take it.
-  useEffect(() => {
-    if (!edit) return;
-    const onPaste = (e: ClipboardEvent) => {
-      const f = imageFrom(e.clipboardData);
-      if (!f) return;
-      e.preventDefault();
-      e.stopPropagation();
-      void takeImage(f);
-    };
-    window.addEventListener("paste", onPaste, true);
-    return () => window.removeEventListener("paste", onPaste, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [edit]);
 
   async function save(ev: React.FormEvent) {
     ev.preventDefault();

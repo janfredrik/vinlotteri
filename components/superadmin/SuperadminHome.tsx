@@ -163,8 +163,8 @@ function HistoryEdit() {
             Rette historikk
           </h2>
           <p className="mt-1 max-w-prose text-plum/70">
-            Åpner runder som er gjort opp for retting av tittel, arrangør, Vippsnummer, kjøpernavn, premier (også fra
-            skjermbilde) og vinnerruter. Pengene står fast. Alle forbi PIN-en kan administrere, så slå det av igjen når du er
+            Åpner runder som er gjort opp for retting av tittel, arrangør, Vippsnummer, kjøpernavn, premier og
+            vinnerruter. Pengene står fast. Alle forbi PIN-en kan administrere, så slå det av igjen når du er
             ferdig.
           </p>
         </div>

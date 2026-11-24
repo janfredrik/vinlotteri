@@ -58,40 +58,6 @@ h1, h2, h3, .font-display {
   animation: winner-glow 2.2s ease-in-out infinite;
 }
 
-/* Prize screenshot scan */
-@keyframes scan-sweep {
-  0% { top: -6%; opacity: 0; }
-  10% { opacity: 1; }
-  90% { opacity: 1; }
-  100% { top: 100%; opacity: 0; }
-}
-.scan-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, var(--color-gold), transparent);
-  box-shadow: 0 0 12px 4px rgba(194, 147, 58, 0.55);
-  animation: scan-sweep 1.4s ease-in-out infinite;
-}
-.scan-frame::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(194, 147, 58, 0.12), transparent 60%);
-  pointer-events: none;
-}
-@keyframes corner-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
-}
-.scan-corner {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  border-color: var(--color-wine);
-  animation: corner-pulse 1.2s ease-in-out infinite;
-}
 @keyframes dots {
   0% { content: ""; }
   25% { content: "."; }
@@ -130,7 +96,7 @@ h1, h2, h3, .font-display {
   animation: pop-in 0.3s 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 @media (prefers-reduced-motion: reduce) {
-  .scan-line, .scan-corner, .animate-shimmer, .animate-fill, .dots::after { animation: none; }
+  .animate-shimmer, .animate-fill, .dots::after { animation: none; }
   .animate-receipt, .animate-receipt .receipt-check { animation: none; }
 }
 

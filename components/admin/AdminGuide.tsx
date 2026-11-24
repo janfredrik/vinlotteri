@@ -155,7 +155,7 @@ export default function AdminGuide({
               >
                 <PasteDemo />
                 <p className="mt-3 text-sm text-plum/80">
-                  Varenummeret virker også, alternativt skjermbilde
+                  Varenummeret virker også.
                 </p>
                 <div className="mt-5 rounded-xl bg-gold-soft/45 px-4 py-3 text-sm">
                   <p className="font-semibold text-plum">Kost regnes ut av seg selv</p>
